@@ -75,11 +75,28 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     static int grid_start_y = 60;       // Starting Y position of the grid
     static char num_str[2] = {0, 0};    // String to hold the number (plus null terminator)
 
-    // draw straight line at the top
-    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, DARK_BLUE);
-    // draw straight line at the bottom
+    // Clear the screen first
+    fillRect(0, 0, 640, 480, BLACK);
+
+    // Progress bar
+    fillRect(grid_start_x + 10, 10, (COLS * cell_width) - 20, 30, WHITE);
+    fillRect(grid_start_x + 15, 15, COLS * cell_width / 2, 20, BLACK);
+
+    setCursor(grid_start_x + 20, 20);
+    setTextColor(WHITE);
+    setTextSize(2); 
+    writeString("OCULA");
+
+    // setCursor(COLS * cell_width / 2 + 20, 25); 
+    // setTextColor(WHITE);
+    // setTextSize(2); 
+    // writeString("50% Complete");
+
     grid_start_y += 10;
-    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, DARK_BLUE);
+    // draw straight line at the top
+    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, GREEN);
+    // draw straight line at the bottom
+    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, GREEN);
     // move grid down
     while (true) {
         begin_time = time_us_32();
