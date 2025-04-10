@@ -47,6 +47,7 @@ pico_generate_pio_header(4760FinalProject ${CMAKE_CURRENT_LIST_DIR}/rgb.pio)
 target_sources(4760FinalProject PRIVATE
 	vga16_graphics.c 
 	main.c
+	game_state.c
 )
 
 # must match with executable name
