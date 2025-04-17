@@ -61,3 +61,4 @@ void writeStringBig(char* str) ;
 void setTextColorBig(char, char); //works, but can use usual setTextColor2
 // 5x7 font
 void writeStringBold(char* str);
+void drawOval(short x0, short y0, short rx, short ry, char color);
