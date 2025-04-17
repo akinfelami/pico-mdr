@@ -190,6 +190,13 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, GREEN);
     // move grid down
 
+    // Draw final botton box
+    fillRect(grid_start_x, 460, COLS * cell_width, 10, WHITE);
+    setCursor(((COLS * cell_width) / 2) - 40, 460 + 1);
+    setTextColor(BLACK);
+    setTextSize(1);
+    writeString("0x5D9EA : 0xB57135");
+
     int wfdm_width = 60;
     int wfdm_height = 10;
     int wfdm_y = 420;
