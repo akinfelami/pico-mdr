@@ -1,6 +1,6 @@
 #include "game_state.h"
-#include <time.h>
 #include <stdlib.h>
+#include <time.h>
 
 void game_state_init(GameState *state) {
     srand(time(NULL));
@@ -20,6 +20,14 @@ void game_state_update(GameState *state) {
         int col = rand() % COLS;
         state->state[row][col] = rand() % 10;
     }
+}
+
+void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage) {
+    state->x = x;
+    state->y = y;
+    state->width = w;
+    state->height = h;
+    state->percentage = percentage;
 }
 
 void game_state_draw(GameState *state) {
