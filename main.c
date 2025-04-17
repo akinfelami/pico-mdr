@@ -86,19 +86,49 @@ void draw_lumon_logo(int cx, int cy, int logo_w, int logo_h) {
     writeString(text_str);
 }
 
-void draw_woe_frolic_dread_and_malice(int x, int y, int w, int h, int percentage, int idx) {
+void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
 
-    // Top Rect
-    char index[2] = {0, 0};
+    // Top Rect (Index Display)
+    char index[3] = {0, 0, 0}; // Increased size for two digits + null terminator
+    // Format the index as a two-digit string (e.g., 00, 01, 02, 03)
+    index[0] = '0'; // Always start with '0'
     index[1] = '0' + idx;
     drawRect(x, y, w, h, CYAN);
-    setCursor(x + (w / 2), y + (h / 2));
+    setCursor(x + (w / 2) - 4, y + (h / 2) - 4); // Adjust cursor slightly for two digits
     setTextSize(1);
     setTextColor(WHITE);
     writeString(index);
 
-    // Bottom Rect
-    drawRect(x, y + (h + 2), w, h, CYAN);
+    // Bottom Rect (Progress Bar)
+    int bottom_y = y + h + 2;
+    // Draw the background/outline of the progress bar
+    drawRect(x, bottom_y, w, h, CYAN); // Outline is CYAN
+
+    int fill_w = (w * percentage) / 100;
+    // Ensure fill width doesn't exceed total width
+    if (fill_w > w) {
+        fill_w = w;
+    }
+    if (fill_w < 0) {
+        fill_w = 0;
+    }
+
+    // Draw the filled portion representing the percentage
+    if (fill_w > 0) {
+        fillRect(x, bottom_y, fill_w, h, WHITE); // Fill is WHITE
+    }
+
+    // Draw the percentage text
+    char percent_str[5];                      // Buffer for percentage string (e.g., "100%")
+    sprintf(percent_str, "%d%%", percentage); // Format the percentage
+    int text_width = strlen(percent_str) * 6; // Assuming font width of 6 pixels
+    int text_x = x + 5;
+    int text_y = bottom_y + (h / 2) - 4; // Adjust vertical position
+
+    setCursor(text_x, text_y);
+    setTextSize(1);
+    setTextColor(BLACK);
+    writeString(percent_str);
 }
 
 // ==================================================
@@ -125,16 +155,16 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 
     int progress_bar_width = (COLS * cell_width);
     int progress_bar_fill_width = progress_bar_width / 2; // For 50%
-    int progress_bar_y = 10;
+    int progress_bar_y = 20;
     int progress_bar_height = 30;
     int progress_bar_x = grid_start_x + 10; // x = 20
 
-    fillRect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height, WHITE);
-    fillRect(progress_bar_x + 5, progress_bar_y + 5, progress_bar_fill_width, progress_bar_height - 10, BLACK); // Black fill (50%)
+    drawRect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height, CYAN);
+    fillRect(progress_bar_x, progress_bar_y, progress_bar_fill_width, progress_bar_height, WHITE); // WHITE fill (50%)
     setCursor(progress_bar_x + 10, progress_bar_y + 10);
-    setTextColor(WHITE);
+    setTextColor(LIGHT_BLUE);
     setTextSize(2);
-    writeString("OCULA");
+    writeString("Ocula");
 
     setCursor(progress_bar_x + progress_bar_fill_width + 10, progress_bar_y + 10);
     setTextColor(WHITE);
@@ -153,7 +183,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     setTextSize(1);
     setTextColor2(WHITE, BLACK);
 
-    grid_start_y = progress_bar_y + progress_bar_height + 20; // Start grid below
+    grid_start_y = progress_bar_y + progress_bar_height + 40; // Start grid below
     // draw straight line at the top
     drawHLine(grid_start_x, grid_start_y, COLS * cell_width, GREEN);
     // draw straight line at the bottom
@@ -163,7 +193,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     int wfdm_width = 60;
     int wfdm_height = 10;
     int wfdm_y = 420;
-    int wfdm_start_x = 80;
+    int wfdm_start_x = 40;
 
     while (true) {
         begin_time = time_us_32();
@@ -189,16 +219,14 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
         }
 
         // First update the game state
-        game_state_update_woe_frolic_dread_and_malice(&game_state.woe, wfdm_start_x, wfdm_y, wfdm_width, wfdm_height, 50);
-        game_state_update_woe_frolic_dread_and_malice(&game_state.frolic, wfdm_start_x + wfdm_width + 80, wfdm_y, wfdm_width, wfdm_height, 50);
-        game_state_update_woe_frolic_dread_and_malice(&game_state.dread, wfdm_start_x + (wfdm_width + 80) * 2, wfdm_y, wfdm_width, wfdm_height, 50);
-        game_state_update_woe_frolic_dread_and_malice(&game_state.malice, wfdm_start_x + (wfdm_width + 80) * 3, wfdm_y, wfdm_width, wfdm_height, 50);
+        for (int i = 0; i < 5; i++) {
+            game_state_update_boxes(&game_state.boxes[i], wfdm_start_x + (wfdm_width + 60) * i, wfdm_y, wfdm_width, wfdm_height, 50);
+        }
 
         // Draw the woe frolic dread and malice boxes
-        draw_woe_frolic_dread_and_malice(game_state.woe.x, game_state.woe.y, game_state.woe.width, game_state.woe.height, game_state.woe.percentage, 0);
-        draw_woe_frolic_dread_and_malice(game_state.frolic.x, game_state.frolic.y, game_state.frolic.width, game_state.frolic.height, game_state.frolic.percentage, 1);
-        draw_woe_frolic_dread_and_malice(game_state.dread.x, game_state.dread.y, game_state.dread.width, game_state.dread.height, game_state.dread.percentage, 2);
-        draw_woe_frolic_dread_and_malice(game_state.malice.x, game_state.malice.y, game_state.malice.width, game_state.malice.height, game_state.malice.percentage, 3);
+        for (int i = 0; i < 5; i++) {
+            draw_boxes(game_state.boxes[i].x, game_state.boxes[i].y, game_state.boxes[i].width, game_state.boxes[i].height, game_state.boxes[i].percentage, i);
+        }
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
         PT_YIELD_usec(spare_time);

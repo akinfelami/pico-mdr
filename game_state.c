@@ -22,7 +22,7 @@ void game_state_update(GameState *state) {
     }
 }
 
-void game_state_update_woe_frolic_dread_and_malice(WoeFrolicDreadAndMalice *state, int x, int y, int w, int h, int percentage) {
+void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage) {
     state->x = x;
     state->y = y;
     state->width = w;
