@@ -183,15 +183,15 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     setTextSize(1);
     setTextColor2(WHITE, BLACK);
 
-    grid_start_y = progress_bar_y + progress_bar_height + 40; // Start grid below
+    grid_start_y = progress_bar_y + progress_bar_height + 30; // Start grid below
     // draw straight line at the top
-    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, GREEN);
+    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
     // draw straight line at the bottom
-    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, GREEN);
+    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, CYAN);
     // move grid down
 
     // Draw final botton box
-    fillRect(grid_start_x, 460, COLS * cell_width, 10, WHITE);
+    fillRect(grid_start_x, 460, COLS * cell_width, 10, CYAN);
     setCursor(((COLS * cell_width) / 2) - 40, 460 + 1);
     setTextColor(BLACK);
     setTextSize(1);
