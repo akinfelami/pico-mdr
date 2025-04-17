@@ -86,6 +86,21 @@ void draw_lumon_logo(int cx, int cy, int logo_w, int logo_h) {
     writeString(text_str);
 }
 
+void draw_woe_frolic_dread_and_malice(int x, int y, int w, int h, int percentage, int idx) {
+
+    // Top Rect
+    char index[2] = {0, 0};
+    index[1] = '0' + idx;
+    drawRect(x, y, w, h, CYAN);
+    setCursor(x + (w / 2), y + (h / 2));
+    setTextSize(1);
+    setTextColor(WHITE);
+    writeString(index);
+
+    // Bottom Rect
+    drawRect(x, y + (h + 2), w, h, CYAN);
+}
+
 // ==================================================
 // === graphics demo -- RUNNING on core 0
 // ==================================================
@@ -144,6 +159,12 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     // draw straight line at the bottom
     drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, GREEN);
     // move grid down
+
+    int wfdm_width = 60;
+    int wfdm_height = 10;
+    int wfdm_y = 420;
+    int wfdm_start_x = 80;
+
     while (true) {
         begin_time = time_us_32();
 
@@ -166,6 +187,19 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 writeString(num_str);
             }
         }
+
+        // First update the game state
+        game_state_update_woe_frolic_dread_and_malice(&game_state.woe, wfdm_start_x, wfdm_y, wfdm_width, wfdm_height, 50);
+        game_state_update_woe_frolic_dread_and_malice(&game_state.frolic, wfdm_start_x + wfdm_width + 80, wfdm_y, wfdm_width, wfdm_height, 50);
+        game_state_update_woe_frolic_dread_and_malice(&game_state.dread, wfdm_start_x + (wfdm_width + 80) * 2, wfdm_y, wfdm_width, wfdm_height, 50);
+        game_state_update_woe_frolic_dread_and_malice(&game_state.malice, wfdm_start_x + (wfdm_width + 80) * 3, wfdm_y, wfdm_width, wfdm_height, 50);
+
+        // Draw the woe frolic dread and malice boxes
+        draw_woe_frolic_dread_and_malice(game_state.woe.x, game_state.woe.y, game_state.woe.width, game_state.woe.height, game_state.woe.percentage, 0);
+        draw_woe_frolic_dread_and_malice(game_state.frolic.x, game_state.frolic.y, game_state.frolic.width, game_state.frolic.height, game_state.frolic.percentage, 1);
+        draw_woe_frolic_dread_and_malice(game_state.dread.x, game_state.dread.y, game_state.dread.width, game_state.dread.height, game_state.dread.percentage, 2);
+        draw_woe_frolic_dread_and_malice(game_state.malice.x, game_state.malice.y, game_state.malice.width, game_state.malice.height, game_state.malice.percentage, 3);
+
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
         PT_YIELD_usec(spare_time);
     }
