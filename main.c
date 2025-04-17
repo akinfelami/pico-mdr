@@ -60,6 +60,33 @@ int new_str = 1;
 GameState game_state;
 
 // ==================================================
+// === lumon logo : Pass the center of the logo and dimension (w, h)
+// ==================================================
+void draw_lumon_logo(int cx, int cy, int logo_w, int logo_h) {
+    char fill_color = BLUE; // Dark blue for the globe fill
+    char line_color = CYAN; // Bright cyan for outlines and text
+
+    // Calculate radii for the ovals
+    short outer_rx = logo_w / 2;
+    short ry = logo_h / 2; //
+    short middle_rx = (short)(outer_rx * 0.75);
+    short inner_rx = (short)(outer_rx * 0.5);
+
+    drawOval(cx, cy, outer_rx, ry, line_color);  // Outer oval
+    drawOval(cx, cy, middle_rx, ry, line_color); // Middle oval
+    drawOval(cx, cy, inner_rx, ry, line_color);  // Inner oval
+
+    drawHLine(cx - middle_rx, cy - (ry - 5), logo_w * 0.75, line_color);
+    drawHLine(cx - middle_rx, cy + (ry - 5), logo_w * 0.75, line_color);
+
+    char text_str[] = "LUMON";
+    setCursor(cx - (middle_rx + 2), cy - 5);
+    setTextSize(2);
+    setTextColor(CYAN);
+    writeString(text_str);
+}
+
+// ==================================================
 // === graphics demo -- RUNNING on core 0
 // ==================================================
 static PT_THREAD(protothread_graphics(struct pt *pt)) {
@@ -74,25 +101,44 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     static const int grid_start_x = 10; // Starting X position of the grid
     static int grid_start_y = 60;       // Starting Y position of the grid
     static char num_str[2] = {0, 0};    // String to hold the number (plus null terminator)
+    static char percent_str[15];        // For percentage display
 
     // Clear the screen first
     fillRect(0, 0, 640, 480, BLACK);
 
     // Progress bar
-    fillRect(grid_start_x + 10, 10, (COLS * cell_width) - 20, 30, WHITE);
-    fillRect(grid_start_x + 15, 15, COLS * cell_width / 2, 20, BLACK);
 
-    setCursor(grid_start_x + 20, 20);
+    int progress_bar_width = (COLS * cell_width);
+    int progress_bar_fill_width = progress_bar_width / 2; // For 50%
+    int progress_bar_y = 10;
+    int progress_bar_height = 30;
+    int progress_bar_x = grid_start_x + 10; // x = 20
+
+    fillRect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height, WHITE);
+    fillRect(progress_bar_x + 5, progress_bar_y + 5, progress_bar_fill_width, progress_bar_height - 10, BLACK); // Black fill (50%)
+    setCursor(progress_bar_x + 10, progress_bar_y + 10);
     setTextColor(WHITE);
-    setTextSize(2); 
+    setTextSize(2);
     writeString("OCULA");
 
-    // setCursor(COLS * cell_width / 2 + 20, 25); 
-    // setTextColor(WHITE);
-    // setTextSize(2); 
-    // writeString("50% Complete");
+    setCursor(progress_bar_x + progress_bar_fill_width + 10, progress_bar_y + 10);
+    setTextColor(WHITE);
+    setTextSize(1);
+    writeString("50% Complete");
 
-    grid_start_y += 10;
+    // Lumon Logo - to the right of the progress bar
+    int logo_w = 70;
+    int logo_h = 40;
+    int logo_cx = progress_bar_width - 10;
+    int logo_cy = progress_bar_y + (progress_bar_height / 2);
+
+    draw_lumon_logo(logo_cx, logo_cy, logo_w, logo_h);
+
+    // Reset text properties for grid numbers
+    setTextSize(1);
+    setTextColor2(WHITE, BLACK);
+
+    grid_start_y = progress_bar_y + progress_bar_height + 20; // Start grid below
     // draw straight line at the top
     drawHLine(grid_start_x, grid_start_y, COLS * cell_width, GREEN);
     // draw straight line at the bottom
