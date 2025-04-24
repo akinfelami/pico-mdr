@@ -1,4 +1,5 @@
 #include "game_state.h"
+#include "vga16_graphics.h"
 #include <stdlib.h>
 #include <time.h>
 
@@ -7,22 +8,27 @@ void game_state_init(GameState *state) {
 
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
-            state->state[row][col] = rand() % 10;
+            state->state[row][col].number = rand() % 10;
+            state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
+            state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
+            state->state[row][col].size = 1;
+            state->state[row][col].animated_last_frame = 0;
         }
     }
-    for (int i = 0; i < NUM_BOIDS; i++) {
-        spawn_boid(&state->boids[i], rand() % 2);
-    }
+    spawn_boid(&state->boids[0], 0);
+    spawn_boid(&state->boids[1], 1);
 }
 
 void game_state_update(GameState *state) {
-    // This function can be used to update the game state
-    // For now, just randomly change a few cells
-    // for (int i = 0; i < 5; i++) {
-    //     int row = rand() % ROWS;
-    //     int col = rand() % COLS;
-    //     state->state[row][col] = rand() % 10;
-    // }
+    srand(time(NULL));
+
+    for (int row = 0; row < ROWS; row++) {
+        for (int col = 0; col < COLS; col++) {
+            state->state[row][col].number = rand() % 10;
+            state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
+            state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
+        }
+    }
 }
 
 void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage) {
@@ -207,5 +213,59 @@ void update_boids(GameState *state) {
         // Update boid's position
         state->boids[i].x += state->boids[i].vx;
         state->boids[i].y += state->boids[i].vy;
+    }
+}
+
+// Helper function for animation of numbers.
+void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 threshold_x, fix15 threshold_y) {
+    // Calculate the distance to move based on the collision
+    fix15 shift_x = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+    fix15 shift_y = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+
+    // erase numbers first
+    fillRect(num->x, num->y, CELL_WIDTH, CELL_HEIGHT, BLACK);
+    num->animated_last_frame = 1;
+
+    // Update the number's position
+    num->x += fix2int15(shift_x);
+    num->y += fix2int15(shift_y);
+    num->size = 2;
+}
+
+void check_collisions_and_animate(GameState *state) {
+
+    fix15 cell_width = int2fix15(CELL_WIDTH);
+    fix15 cell_height = int2fix15(CELL_HEIGHT);
+    fix15 half_cell_width = divfix(cell_width, int2fix15(2));
+    fix15 half_cell_height = divfix(cell_height, int2fix15(2));
+    fix15 boid_radius_fix = int2fix15(BOID_COLLISION_RADIUS);
+
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+
+            // Calculate cell center coordinates (fixed point)
+            fix15 cell_center_x = int2fix15(state->state[i][j].x) + half_cell_width;
+            fix15 cell_center_y = int2fix15(state->state[i][j].y) + half_cell_height;
+
+            // Check collision with each boid
+            for (int k = 0; k < NUM_BOIDS; k++) {
+                // Get boid center coordinates
+
+                fix15 dx = state->boids[k].x - cell_center_x;
+                fix15 dy = state->boids[k].y - cell_center_y;
+
+                fix15 abs_dx = absfix15(dx);
+                fix15 abs_dy = absfix15(dy);
+
+                fix15 threshold_x = half_cell_width + boid_radius_fix;
+                fix15 threshold_y = half_cell_height + boid_radius_fix;
+
+                if ((abs_dx < threshold_x) && (abs_dy < threshold_y)) {
+                    // Collision detected! Animate the number.
+                    animate_numbers(&state->state[i][j], dx, dy, threshold_x, threshold_y);
+                    break;
+                }
+            }
+        }
     }
 }

@@ -52,7 +52,7 @@
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
-#define FRAME_RATE 30000
+#define FRAME_RATE 60000
 
 // Accumulator variables for boids
 char user_string[40] = "Type up to 40 characters";
@@ -213,36 +213,66 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     while (true) {
         begin_time = time_us_32();
 
+        // Reset number positions to their grid locations before collision checks
+        for (int row = 0; row < ROWS; row++) {
+            for (int col = 0; col < COLS; col++) {
+                if (game_state.state[row][col].animated_last_frame == 1) {
+                    fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
+                             CELL_WIDTH, CELL_HEIGHT, BLACK);
+                    game_state.state[row][col].animated_last_frame = 0;
+                }
+                game_state.state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
+                game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
+                game_state.state[row][col].size = 1;
+            }
+        }
+
+        // Draw the numbers from the game state
+        // for (int row = 0; row < ROWS; row++) {
+        //     for (int col = 0; col < COLS; col++) {
+        //         // convert number to string
+        //         num_str[0] = '0' + game_state.state[row][col].number;
+
+        //         // set text properties
+        //         setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
+        //                   game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
+        //         setTextColor(WHITE);
+        //         setTextSize(game_state.state[row][col].size);
+
+        //         // draw the number
+        //         writeString(num_str);
+        //     }
+        // }
+
+        // Then update the boids
+        update_boids(&game_state);
+
+        // check collisions
+        check_collisions_and_animate(&game_state);
+
         // Draw the numbers from the game state
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
-                // calculate position
-                int x = grid_start_x + (col * cell_width);
-                int y = grid_start_y + (row * cell_height);
-
                 // convert number to string
-                num_str[0] = '0' + game_state.state[row][col];
+                num_str[0] = '0' + game_state.state[row][col].number;
 
                 // set text properties
-                setCursor(x + cell_width / 2,
-                          y + cell_height / 2); // center text in cell
-                setTextColor2(WHITE, BLACK);
-                setTextSize(1);
+                setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
+                          game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
+                setTextColor(WHITE);
+                setTextSize(game_state.state[row][col].size);
 
                 // draw the number
                 writeString(num_str);
             }
         }
 
-        // First Draw the boids
-        for (int i = 0; i < NUM_BOIDS; i++) {
-            drawCircle(game_state.boids[i].x, game_state.boids[i].y, 4, WHITE);
-        }
+        // Draw the collision radius
+        // for (int i = 0; i < NUM_BOIDS; i++) {
+        //     drawCircle(fix2int15(game_state.boids[i].x), fix2int15(game_state.boids[i].y), BOID_COLLISION_RADIUS, WHITE);
+        // }
 
-        // Then update the boids
-        update_boids(&game_state);
-
-        // First update the game state
+        //  update the game state
         for (int i = 0; i < 5; i++) {
             game_state_update_boxes(&game_state.boxes[i],
                                     wfdm_start_x + (wfdm_width + 60) * i, wfdm_y,
@@ -255,6 +285,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                        game_state.boxes[i].width, game_state.boxes[i].height,
                        game_state.boxes[i].percentage, i);
         }
+
+        // game_state_update(&game_state);
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
         PT_YIELD_usec(spare_time);

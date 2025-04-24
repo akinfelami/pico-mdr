@@ -1,4 +1,3 @@
-
 #include "pico/divider.h"
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
@@ -9,7 +8,7 @@
 #define ROWS 7
 #define COLS 15
 
-#define NUM_BOIDS 10
+#define NUM_BOIDS 2
 
 // === the fixed point macros ========================================
 typedef signed int fix15;
@@ -26,25 +25,34 @@ typedef signed int fix15;
 #define VISUAL_RANGE float2fix15(40.0)
 #define PROTECTED_RANGE float2fix15(8.0)
 #define CENTERING_FACTOR float2fix15(0.0005)
-#define AVOID_FACTOR float2fix15(0.05)
-#define MATCHING_FACTOR float2fix15(0.05)
-#define TURN_FACTOR float2fix15(0.2)
-#define MAX_SPEED float2fix15(6.0)
-#define MIN_SPEED float2fix15(3.0)
+#define AVOID_FACTOR float2fix15(0.7)
+#define MATCHING_FACTOR float2fix15(0.005)
+#define TURN_FACTOR float2fix15(0.02)
+#define MAX_SPEED float2fix15(2.0)
+#define MIN_SPEED float2fix15(1.0)
 #define BIAS_VAL_GROUP1 float2fix15(0.001)
 #define BIAS_VAL_GROUP2 float2fix15(0.001)
 #define BIAS_INCREMENT float2fix15(0.00004) // For dynamic bias
 #define MAX_BIAS float2fix15(0.01)
+#define BOID_RADIUS 4
 
 // Screen margins (assuming 640x480 screen)
-#define LEFT_MARGIN int2fix15(100)
-#define RIGHT_MARGIN int2fix15(540) // 640 - 100
-#define TOP_MARGIN int2fix15(100)
-#define BOTTOM_MARGIN int2fix15(380) // 480 - 100
+#define LEFT_MARGIN int2fix15(10)
+#define RIGHT_MARGIN int2fix15(620) // 640 - 20
+#define TOP_MARGIN int2fix15(200)
+#define BOTTOM_MARGIN int2fix15(280) // 480 - 100
+#define GRID_START_X 10
+#define GRID_START_Y 80
+#define CELL_WIDTH 40
+#define CELL_HEIGHT 40
+#define MAX_PIXEL_SHIFT int2fix15(10)
+
+// Numbers within this radius of the boid are considered surrounding the boid
+#define BOID_COLLISION_RADIUS 40
 
 // Scout group definitions (example: first 2 boids are group 1, next 2 are group 2)
-#define NUM_SCOUTS_GROUP1 2
-#define NUM_SCOUTS_GROUP2 2
+#define NUM_SCOUTS_GROUP1 5
+#define NUM_SCOUTS_GROUP2 5
 
 // Wall detection
 #define hitBottom(b) (b > BOTTOM_MARGIN)
@@ -71,7 +79,15 @@ typedef struct {
 } Boid;
 
 typedef struct {
-    int state[ROWS][COLS];
+    int x;
+    int y;
+    int number;
+    int size;
+    int animated_last_frame;
+} Number;
+
+typedef struct {
+    Number state[ROWS][COLS];
     Box boxes[5];
     Boid boids[NUM_BOIDS];
 } GameState;
@@ -83,5 +99,7 @@ void game_state_draw(GameState *state);
 void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage);
 void spawn_boid(Boid *boid, int group_id);
 void update_boids(GameState *state);
+void check_collisions_and_animate(GameState *state);
+void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 shift_x, fix15 shift_y);
 
 #endif // GAME_STATE_H
