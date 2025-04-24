@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+
 void game_state_init(GameState *state) {
     srand(time(NULL));
 
@@ -10,16 +11,20 @@ void game_state_init(GameState *state) {
             state->state[row][col] = rand() % 10;
         }
     }
+    for (int i = 0; i < NUM_BOIDS; i++) {
+        spawn_boid(&state->boids[i], rand() % 2);
+    }
 }
 
 void game_state_update(GameState *state) {
     // This function can be used to update the game state
     // For now, just randomly change a few cells
-    for (int i = 0; i < 5; i++) {
-        int row = rand() % ROWS;
-        int col = rand() % COLS;
-        state->state[row][col] = rand() % 10;
-    }
+    // for (int i = 0; i < 5; i++) {
+    //     int row = rand() % ROWS;
+    //     int col = rand() % COLS;
+    //     state->state[row][col] = rand() % 10;
+    // }
+
 }
 
 void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage) {
@@ -34,4 +39,175 @@ void game_state_draw(GameState *state) {
     // This function could be used to draw the game state
     // But for now, we're handling the drawing in the protothread_graphics function
     // So this is just a placeholder
+}
+
+void spawn_boid(Boid *boid, int group_id) {
+    // Start in center of screen
+    boid->x = int2fix15(320);
+    boid->y = int2fix15(240);
+
+    boid->vx = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+    boid->vy = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+
+    // Assign scout group and initial bias
+    boid->scout_group = group_id;
+    if (group_id == 0) {
+        boid->biasval = BIAS_VAL_GROUP1;
+    } else if (group_id == 1) {
+        boid->biasval = BIAS_VAL_GROUP2; 
+    }
+}
+
+void update_boids(GameState *state) {
+    for (int i = 0; i < NUM_BOIDS; i++) {
+
+        // Zero all accumulators variables
+        fix15 xpos_avg = 0;
+        fix15 ypos_avg = 0;
+        fix15 xvel_avg = 0;
+        fix15 yvel_avg = 0;
+        fix15 neighboring_boids = 0;
+        fix15 close_dx = 0;
+        fix15 close_dy = 0;
+
+        for (int j = 0; j < NUM_BOIDS; j++) {
+            if (i == j)
+                continue;
+
+            // Compute differences in x and y coordinates
+            fix15 dx = state->boids[i].x - state->boids[j].x;
+            fix15 dy = state->boids[i].y - state->boids[j].y;
+
+            // Approximate distance using Alpha max plus beta min
+            fix15 abs_dx = absfix15(dx);
+            fix15 abs_dy = absfix15(dy);
+            fix15 distance;
+            if (abs_dx > abs_dy) {
+                distance = abs_dx + (abs_dy >> 2);
+            } else {
+                distance = abs_dy + (abs_dx >> 2);
+            }
+
+            // Is the other boid within the protected range?
+            if (distance < PROTECTED_RANGE) {
+                // If so, calculate difference in x/y-coordinates for separation
+                // Steer away from the other boid
+                close_dx += dx;
+                close_dy += dy;
+            }
+            // If not in protected range, is the boid in the visual range ?
+            else if (distance < VISUAL_RANGE) {
+                // Add other boid's x/y-coord and x/y vel to accumulator variables
+                xpos_avg += state->boids[j].x;
+                ypos_avg += state->boids[j].y;
+                xvel_avg += state->boids[j].vx;
+                yvel_avg += state->boids[j].vy;
+
+                // Increment number of boids within visual range
+                neighboring_boids += int2fix15(1);
+            }
+        }
+
+        // If there were any boids in the visual range
+        if (neighboring_boids > 0) {
+            // Divide accumulator variables by number of boids in visual range
+            xpos_avg = divfix(xpos_avg, neighboring_boids);
+            ypos_avg = divfix(ypos_avg, neighboring_boids);
+            xvel_avg = divfix(xvel_avg, neighboring_boids);
+            yvel_avg = divfix(yvel_avg, neighboring_boids);
+
+            // Add the centering/matching contributions to velocity
+            state->boids[i].vx += multfix15(xpos_avg - state->boids[i].x, CENTERING_FACTOR) +
+                                  multfix15(xvel_avg - state->boids[i].vx, MATCHING_FACTOR);
+
+            state->boids[i].vy += multfix15(ypos_avg - state->boids[i].y, CENTERING_FACTOR) +
+                                  multfix15(yvel_avg - state->boids[i].vy, MATCHING_FACTOR);
+        }
+
+        // Add the avoidance contribution to velocity
+        state->boids[i].vx += multfix15(close_dx, AVOID_FACTOR);
+        state->boids[i].vy += multfix15(close_dy, AVOID_FACTOR);
+
+        // If the boid is near an edge, make it turn by turnfactor
+        if (hitTop(state->boids[i].y)) {
+            state->boids[i].vy += TURN_FACTOR;
+        }
+        if (hitRight(state->boids[i].x)) {
+            state->boids[i].vx -= TURN_FACTOR;
+        }
+        if (hitLeft(state->boids[i].x)) {
+            state->boids[i].vx += TURN_FACTOR;
+        }
+        if (hitBottom(state->boids[i].y)) {
+            state->boids[i].vy -= TURN_FACTOR;
+        }
+
+        // Bias for scout groups
+        // biased to right of screen
+        if (state->boids[i].scout_group == 0) { // Scout group 1 (biased right)
+            if (state->boids[i].vx > 0) {       // Moving right, increase bias
+                state->boids[i].biasval += BIAS_INCREMENT;
+                if (state->boids[i].biasval > MAX_BIAS) {
+                    state->boids[i].biasval = MAX_BIAS;
+                }
+            } else { // Moving left or stationary, decrease bias
+                state->boids[i].biasval -= BIAS_INCREMENT;
+                if (state->boids[i].biasval < BIAS_INCREMENT) { 
+                    state->boids[i].biasval = BIAS_INCREMENT;
+                }
+            }
+        } else if (state->boids[i].scout_group == 1) { // Scout group 2 (biased left)
+            if (state->boids[i].vx < 0) {              // Moving left, increase bias
+                state->boids[i].biasval += BIAS_INCREMENT;
+                if (state->boids[i].biasval > MAX_BIAS) {
+                    state->boids[i].biasval = MAX_BIAS;
+                }
+            } else { // Moving right or stationary, decrease bias
+                state->boids[i].biasval -= BIAS_INCREMENT;
+                if (state->boids[i].biasval < BIAS_INCREMENT) { // Ensure bias doesn't go below minimum increment step
+                    state->boids[i].biasval = BIAS_INCREMENT;
+                }
+            }
+        }
+
+        // Apply the bias using the boid's individual biasval
+        if (state->boids[i].scout_group == 1) {
+            state->boids[i].vx = multfix15(int2fix15(1) - state->boids[i].biasval, state->boids[i].vx) +
+                                 multfix15(state->boids[i].biasval, int2fix15(1));
+        } else if (state->boids[i].scout_group == 2) {
+            state->boids[i].vx = multfix15(int2fix15(1) - state->boids[i].biasval, state->boids[i].vx) +
+                                 multfix15(state->boids[i].biasval, int2fix15(-1));
+        }
+
+        // Calculate the boid's speed using Alpha max plus beta min
+        fix15 abs_vx = absfix15(state->boids[i].vx);
+        fix15 abs_vy = absfix15(state->boids[i].vy);
+        fix15 speed;
+        if (abs_vx > abs_vy) {
+            speed = abs_vx + (abs_vy >> 2);
+        } else {
+            speed = abs_vy + (abs_vx >> 2);
+        }
+
+        // Enforce min and max speed
+        if (speed > MAX_SPEED) {
+            state->boids[i].vx = multfix15(divfix(state->boids[i].vx, speed), MAX_SPEED);
+            state->boids[i].vy = multfix15(divfix(state->boids[i].vy, speed), MAX_SPEED);
+        }
+        if (speed < MIN_SPEED) {
+            // Avoid division by zero or very small numbers if speed is close to zero
+            if (speed == 0) {
+                // Give it a small random velocity if speed is exactly zero
+                state->boids[i].vx = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+                state->boids[i].vy = ((rand() & 0xFFFF) * 3) - int2fix15(3);
+                speed = MIN_SPEED; // Set speed to min speed to normalize
+            }
+            state->boids[i].vx = multfix15(divfix(state->boids[i].vx, speed), MIN_SPEED);
+            state->boids[i].vy = multfix15(divfix(state->boids[i].vy, speed), MIN_SPEED);
+        }
+
+        // Update boid's position
+        state->boids[i].x += state->boids[i].vx;
+        state->boids[i].y += state->boids[i].vy;
+    }
 }
