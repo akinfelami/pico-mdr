@@ -31,10 +31,10 @@ typedef signed int fix15;
 #define TURN_FACTOR float2fix15(0.2)
 #define MAX_SPEED float2fix15(6.0)
 #define MIN_SPEED float2fix15(3.0)
-#define BIAS_VAL_GROUP1 float2fix15(0.001) 
-#define BIAS_VAL_GROUP2 float2fix15(0.001) 
-#define BIAS_INCREMENT float2fix15(0.00004) // For dynamic bias 
-#define MAX_BIAS float2fix15(0.01) 
+#define BIAS_VAL_GROUP1 float2fix15(0.001)
+#define BIAS_VAL_GROUP2 float2fix15(0.001)
+#define BIAS_INCREMENT float2fix15(0.00004) // For dynamic bias
+#define MAX_BIAS float2fix15(0.01)
 
 // Screen margins (assuming 640x480 screen)
 #define LEFT_MARGIN int2fix15(100)
@@ -66,7 +66,7 @@ typedef struct {
     fix15 y;
     fix15 vx;
     fix15 vy;
-    fix15 biasval;    
+    fix15 biasval;
     int scout_group; // 0: group 1, 1: group 2
 } Boid;
 

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
 void game_state_init(GameState *state) {
     srand(time(NULL));
 
@@ -24,7 +23,6 @@ void game_state_update(GameState *state) {
     //     int col = rand() % COLS;
     //     state->state[row][col] = rand() % 10;
     // }
-
 }
 
 void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage) {
@@ -54,7 +52,7 @@ void spawn_boid(Boid *boid, int group_id) {
     if (group_id == 0) {
         boid->biasval = BIAS_VAL_GROUP1;
     } else if (group_id == 1) {
-        boid->biasval = BIAS_VAL_GROUP2; 
+        boid->biasval = BIAS_VAL_GROUP2;
     }
 }
 
@@ -152,7 +150,7 @@ void update_boids(GameState *state) {
                 }
             } else { // Moving left or stationary, decrease bias
                 state->boids[i].biasval -= BIAS_INCREMENT;
-                if (state->boids[i].biasval < BIAS_INCREMENT) { 
+                if (state->boids[i].biasval < BIAS_INCREMENT) {
                     state->boids[i].biasval = BIAS_INCREMENT;
                 }
             }
