@@ -52,8 +52,9 @@
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
-#define FRAME_RATE 30000
+#define FRAME_RATE 60000
 
+// Accumulator variables for boids
 char user_string[40] = "Type up to 40 characters";
 int new_str = 1;
 
@@ -94,7 +95,8 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
     index[0] = '0'; // Always start with '0'
     index[1] = '0' + idx;
     drawRect(x, y, w, h, CYAN);
-    setCursor(x + (w / 2) - 4, y + (h / 2) - 4); // Adjust cursor slightly for two digits
+    setCursor(x + (w / 2) - 4,
+              y + (h / 2) - 4); // Adjust cursor slightly for two digits
     setTextSize(1);
     setTextColor(WHITE);
     writeString(index);
@@ -145,8 +147,9 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     static const int cell_height = 40;  // Height of each grid cell
     static const int grid_start_x = 10; // Starting X position of the grid
     static int grid_start_y = 60;       // Starting Y position of the grid
-    static char num_str[2] = {0, 0};    // String to hold the number (plus null terminator)
-    static char percent_str[15];        // For percentage display
+    static char num_str[2] = {
+        0, 0};                   // String to hold the number (plus null terminator)
+    static char percent_str[15]; // For percentage display
 
     // Clear the screen first
     fillRect(0, 0, 640, 480, BLACK);
@@ -159,8 +162,10 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     int progress_bar_height = 30;
     int progress_bar_x = grid_start_x + 10; // x = 20
 
-    drawRect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height, CYAN);
-    fillRect(progress_bar_x, progress_bar_y, progress_bar_fill_width, progress_bar_height, WHITE); // WHITE fill (50%)
+    drawRect(progress_bar_x, progress_bar_y, progress_bar_width,
+             progress_bar_height, CYAN);
+    fillRect(progress_bar_x, progress_bar_y, progress_bar_fill_width,
+             progress_bar_height, WHITE); // WHITE fill (50%)
     setCursor(progress_bar_x + 10, progress_bar_y + 10);
     setTextColor(LIGHT_BLUE);
     setTextSize(2);
@@ -187,7 +192,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     // draw straight line at the top
     drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
     // draw straight line at the bottom
-    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height), COLS * cell_width, CYAN);
+    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height),
+              COLS * cell_width, CYAN);
     // move grid down
 
     // Draw final botton box
@@ -202,38 +208,85 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     int wfdm_y = 420;
     int wfdm_start_x = 40;
 
+    // Spawn boids
+
     while (true) {
         begin_time = time_us_32();
+
+        // Reset number positions to their grid locations before collision checks
+        for (int row = 0; row < ROWS; row++) {
+            for (int col = 0; col < COLS; col++) {
+                if (game_state.state[row][col].animated_last_frame == 1) {
+                    fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
+                             CELL_WIDTH, CELL_HEIGHT, BLACK);
+                    game_state.state[row][col].animated_last_frame = 0;
+                }
+                game_state.state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
+                game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
+                game_state.state[row][col].size = 1;
+            }
+        }
+
+        // Draw the numbers from the game state
+        // for (int row = 0; row < ROWS; row++) {
+        //     for (int col = 0; col < COLS; col++) {
+        //         // convert number to string
+        //         num_str[0] = '0' + game_state.state[row][col].number;
+
+        //         // set text properties
+        //         setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
+        //                   game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
+        //         setTextColor(WHITE);
+        //         setTextSize(game_state.state[row][col].size);
+
+        //         // draw the number
+        //         writeString(num_str);
+        //     }
+        // }
+
+        // Then update the boids
+        update_boids(&game_state);
+
+        // check collisions
+        check_collisions_and_animate(&game_state);
 
         // Draw the numbers from the game state
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
-                // calculate position
-                int x = grid_start_x + (col * cell_width);
-                int y = grid_start_y + (row * cell_height);
-
                 // convert number to string
-                num_str[0] = '0' + game_state.state[row][col];
+                num_str[0] = '0' + game_state.state[row][col].number;
 
                 // set text properties
-                setCursor(x + cell_width / 2, y + cell_height / 2); // center text in cell
-                setTextColor2(WHITE, BLACK);
-                setTextSize(1);
+                setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
+                          game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
+                setTextColor(WHITE);
+                setTextSize(game_state.state[row][col].size);
 
                 // draw the number
                 writeString(num_str);
             }
         }
 
-        // First update the game state
+        // Draw the collision radius
+        // for (int i = 0; i < NUM_BOIDS; i++) {
+        //     drawCircle(fix2int15(game_state.boids[i].x), fix2int15(game_state.boids[i].y), BOID_COLLISION_RADIUS, WHITE);
+        // }
+
+        //  update the game state
         for (int i = 0; i < 5; i++) {
-            game_state_update_boxes(&game_state.boxes[i], wfdm_start_x + (wfdm_width + 60) * i, wfdm_y, wfdm_width, wfdm_height, 50);
+            game_state_update_boxes(&game_state.boxes[i],
+                                    wfdm_start_x + (wfdm_width + 60) * i, wfdm_y,
+                                    wfdm_width, wfdm_height, 50);
         }
 
         // Draw the woe frolic dread and malice boxes
         for (int i = 0; i < 5; i++) {
-            draw_boxes(game_state.boxes[i].x, game_state.boxes[i].y, game_state.boxes[i].width, game_state.boxes[i].height, game_state.boxes[i].percentage, i);
+            draw_boxes(game_state.boxes[i].x, game_state.boxes[i].y,
+                       game_state.boxes[i].width, game_state.boxes[i].height,
+                       game_state.boxes[i].percentage, i);
         }
+
+        // game_state_update(&game_state);
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
         PT_YIELD_usec(spare_time);
