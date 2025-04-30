@@ -190,7 +190,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 
     grid_start_y = progress_bar_y + progress_bar_height + 30; // Start grid below
     // draw straight line at the top
-    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
+    // drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
     // draw straight line at the bottom
     drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height),
               COLS * cell_width, CYAN);
@@ -219,11 +219,11 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 if (game_state.state[row][col].animated_last_frame == 1) {
                     fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
                              CELL_WIDTH, CELL_HEIGHT, BLACK);
-                    game_state.state[row][col].animated_last_frame = 0;
                 }
                 game_state.state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
                 game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
                 game_state.state[row][col].size = 1;
+                game_state.state[row][col].animated_last_frame = 0;
             }
         }
 
@@ -259,7 +259,13 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 // set text properties
                 setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
                           game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
-                setTextColor(WHITE);
+
+                if (game_state.state[row][col].is_bad_number) {
+                    setTextColor(RED);
+                } else {
+                    setTextColor(WHITE);
+                }
+
                 setTextSize(game_state.state[row][col].size);
 
                 // draw the number

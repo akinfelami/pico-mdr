@@ -84,6 +84,8 @@ typedef struct {
     int number;
     int size;
     int animated_last_frame;
+    int bad_group_id;
+    bool is_bad_number;
 } Number;
 
 typedef struct {
@@ -101,5 +103,5 @@ void spawn_boid(Boid *boid, int group_id);
 void update_boids(GameState *state);
 void check_collisions_and_animate(GameState *state);
 void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 shift_x, fix15 shift_y);
-
+void group_bad_numbers(GameState *state);
 #endif // GAME_STATE_H

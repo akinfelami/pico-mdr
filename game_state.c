@@ -3,18 +3,65 @@
 #include <stdlib.h>
 #include <time.h>
 
+static inline bool is_valid(int r, int c) {
+    return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+}
+
+// Helper function for DFS grouping
+void dfs_group(GameState *state, int r, int c, int group_id) {
+    // Check bounds, if it's a bad number, and if it hasn't been assigned a group yet
+    if (!is_valid(r, c) || !state->state[r][c].is_bad_number || state->state[r][c].bad_group_id != -1) {
+        return;
+    }
+
+    // Assign the current cell to the group
+    state->state[r][c].bad_group_id = group_id;
+
+    // Recursively visit all 8 neighbors
+    for (int dr = -1; dr <= 1; ++dr) {
+        for (int dc = -1; dc <= 1; ++dc) {
+            if (dr == 0 && dc == 0)
+                continue; // Skip self
+            dfs_group(state, r + dr, c + dc, group_id);
+        }
+    }
+}
+
+void group_bad_numbers(GameState *state) {
+    int next_group_id = 0;
+    // Iterate through all cells in the grid
+    for (int r = 0; r < ROWS; ++r) {
+        for (int c = 0; c < COLS; ++c) {
+            // If it's a bad number and hasn't been assigned to a group yet
+            if (state->state[r][c].is_bad_number && state->state[r][c].bad_group_id == -1) {
+                // Start a DFS from this cell to find all connected bad numbers
+                dfs_group(state, r, c, next_group_id);
+                // Increment the group ID for the next group found
+                next_group_id++;
+            }
+        }
+    }
+}
+
 void game_state_init(GameState *state) {
     srand(time(NULL));
 
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
-            state->state[row][col].number = rand() % 10;
+            int random_number = rand();
+            state->state[row][col].number = random_number % 10;
             state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
             state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
             state->state[row][col].size = 1;
             state->state[row][col].animated_last_frame = 0;
+            state->state[row][col].is_bad_number = (random_number & 0xF) > 14;
+            state->state[row][col].bad_group_id = -1;
         }
     }
+
+    // Group bad numbers after they are initialized
+    group_bad_numbers(state);
+
     spawn_boid(&state->boids[0], 0);
     spawn_boid(&state->boids[1], 1);
 }
@@ -229,7 +276,29 @@ void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 threshold_x, fix15 t
     // Update the number's position
     num->x += fix2int15(shift_x);
     num->y += fix2int15(shift_y);
-    num->size = 2;
+    num->size = 1;
+}
+
+// TODO: Potential optimization: No need to check all cells every frame;
+// keep ids of animated cells and only check those.
+void update_group_animations(GameState *state) {
+    // Track which groups have been hit this frame
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            if (state->state[i][j].animated_last_frame && state->state[i][j].is_bad_number) {
+                // Get the group ID of the animated bad number
+                int group_id = state->state[i][j].bad_group_id;
+                // Make all numbers in the same group bigger
+                for (int r = 0; r < ROWS; r++) {
+                    for (int c = 0; c < COLS; c++) {
+                        if (state->state[r][c].bad_group_id == group_id) {
+                            state->state[r][c].size = 2;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void check_collisions_and_animate(GameState *state) {
@@ -268,4 +337,5 @@ void check_collisions_and_animate(GameState *state) {
             }
         }
     }
+    update_group_animations(state);
 }
