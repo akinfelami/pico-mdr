@@ -45,14 +45,26 @@
 // ==========================================
 // === protothreads globals
 // ==========================================
+#include "hardware/adc.h"
 #include "hardware/sync.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
+
 #include "string.h"
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
 #define FRAME_RATE 60000 // 60 FPS
+
+int ADC_GPIO_VX = 28;
+int ADC_GPIO_VY = 27;
+int BUTTON_PIN = 22;
+
+int X_RIGHT_THRESHOLD = 3000;
+int X_LEFT_THRESHOLD = 500;
+
+int Y_DOWN_THRESHOLD = 3000;
+int Y_UP_THRESHOLD = 500;
 
 GameState game_state;
 
@@ -127,6 +139,105 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
     setTextSize(1);
     setTextColor(BLACK);
     writeString(percent_str);
+}
+
+static PT_THREAD(protothread_button_press(struct pt *pt)) {
+    PT_BEGIN(pt);
+    static enum {
+        NOT_PRESSED,
+        MAYBE_PRESSED,
+        PRESSED,
+        MAYBE_NOT_PRESSED
+    } debounce_state = NOT_PRESSED;
+
+    static int possible_press = -1;
+
+    while (1) {
+        bool buttonpress = gpio_get(BUTTON_PIN);
+
+        switch (debounce_state) {
+        case NOT_PRESSED:
+            if (buttonpress == 0) {
+                possible_press = buttonpress;
+                debounce_state = MAYBE_PRESSED;
+            }
+            break;
+        case MAYBE_PRESSED:
+            if (buttonpress == 0 && possible_press == 0)
+                debounce_state = PRESSED;
+            game_state.cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
+            game_state.cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
+            // Button pressed here.
+            break;
+        case PRESSED:
+            if (buttonpress == 1)
+                debounce_state = MAYBE_NOT_PRESSED;
+            break;
+        case MAYBE_NOT_PRESSED:
+            if (buttonpress == 0)
+                debounce_state = PRESSED;
+            else
+                debounce_state = NOT_PRESSED;
+            break;
+        default:
+            break;
+        }
+
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(30000);
+    }
+
+    PT_END(pt);
+}
+
+int get_VX_ADC() {
+    adc_select_input(2);
+    return adc_read();
+}
+
+int get_VY_ADC() {
+    adc_select_input(1);
+    return adc_read();
+}
+
+static PT_THREAD(protothread_joystick(struct pt *pt)) {
+    PT_BEGIN(pt);
+
+    while (1) {
+        int x_value = get_VX_ADC();
+        int y_value = get_VY_ADC();
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, BLACK);
+
+        if (x_value > X_RIGHT_THRESHOLD) {
+            // Command RIGHT
+            game_state.cursor.x += CELL_WIDTH;
+        } else if (x_value < X_LEFT_THRESHOLD) {
+            // Command LEFT
+            game_state.cursor.x -= CELL_WIDTH;
+        } else if (y_value > Y_DOWN_THRESHOLD) {
+            // Command DOWN
+            game_state.cursor.y += CELL_HEIGHT;
+        } else if (y_value < Y_UP_THRESHOLD) {
+            // Command UP
+            game_state.cursor.y -= CELL_HEIGHT;
+
+            if (game_state.cursor.x > 640)
+                game_state.cursor.x = 640;
+            if (game_state.cursor.x < 0)
+                game_state.cursor.x = 0;
+            if (game_state.cursor.y > 480)
+                game_state.cursor.y = 480;
+            if (game_state.cursor.y < 0)
+                game_state.cursor.y = 0;
+        }
+
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, RED);
+
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(70000);
+    }
+
+    PT_END(pt);
 }
 
 // ==================================================
@@ -288,7 +399,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 } // graphics thread
 
 // ==================================================
-// === toggle25 thread on core 0
+// === box animation thread on core 0
 // ==================================================
 // the on-board LED blinks
 static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
@@ -374,6 +485,18 @@ int main() {
     // set the clock
     stdio_init_all();
 
+    // SET UP BUTTON
+    gpio_init(BUTTON_PIN);
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(BUTTON_PIN);
+
+    // SET UP JOYSTICK
+    adc_gpio_init(ADC_GPIO_VX);
+    adc_gpio_init(ADC_GPIO_VY);
+
+    adc_init();
+    adc_select_input(0);
+
     // Initialize the VGA screen
     initVGA();
 
@@ -384,6 +507,8 @@ int main() {
     // === config threads ========================
     // for core 0
     pt_add_thread(protothread_graphics);
+    pt_add_thread(protothread_joystick);
+    pt_add_thread(protothread_button_press);
     //
     // === initalize the scheduler ===============
     pt_schedule_start;

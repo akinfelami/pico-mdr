@@ -73,6 +73,12 @@ void game_state_init(GameState *state, int seed) {
         state->box_anims[i].current_anim_height = 0;
         state->box_anims[i].anim_state = ANIM_IDLE;
     }
+
+    // Initialize cursor
+    state->cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
+    state->cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
+    state->cursor.width = CELL_WIDTH;
+    state->cursor.height = CELL_HEIGHT;
 }
 
 void game_state_update(GameState *state) {
