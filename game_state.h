@@ -115,10 +115,18 @@ typedef struct {
 } Number;
 
 typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} Cursor;
+
+typedef struct {
     Number state[ROWS][COLS];
     Box boxes[5];
     Boid boids[NUM_BOIDS];
     BoxAnim box_anims[5];
+    Cursor cursor;
 } GameState;
 
 // Function declarations
