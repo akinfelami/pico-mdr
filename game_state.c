@@ -77,6 +77,15 @@ void game_state_init(GameState *state, int seed) {
         state->box_anims[i].dread_percentage = 10;
         state->box_anims[i].malice_percentage = 10;
     }
+
+    // Initialize cursor
+    state->cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
+    state->cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
+    state->cursor.width = CELL_WIDTH;
+    state->cursor.height = CELL_HEIGHT;
+
+    // Initialize play state
+    state->play_state = START_SCREEN;
 }
 
 void game_state_update(GameState *state) {

@@ -45,16 +45,30 @@
 // ==========================================
 // === protothreads globals
 // ==========================================
+#include "hardware/adc.h"
 #include "hardware/sync.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
+
 #include "string.h"
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
 #define FRAME_RATE 60000 // 60 FPS
 
+int ADC_GPIO_VX = 28;
+int ADC_GPIO_VY = 27;
+int BUTTON_PIN = 22;
+
+int X_RIGHT_THRESHOLD = 3000;
+int X_LEFT_THRESHOLD = 500;
+
+int Y_DOWN_THRESHOLD = 3000;
+int Y_UP_THRESHOLD = 500;
+
 GameState game_state;
+// semaphore
+static struct pt_sem start_game_sem;
 
 // ==================================================
 // === lumon logo : Pass the center of the logo and dimension (w, h)
@@ -129,12 +143,104 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
     writeString(percent_str);
 }
 
+static PT_THREAD(protothread_button_press(struct pt *pt)) {
+    PT_BEGIN(pt);
+    static enum {
+        NOT_PRESSED,
+        MAYBE_PRESSED,
+        PRESSED,
+        MAYBE_NOT_PRESSED
+    } debounce_state = NOT_PRESSED;
 
-void draw_woe_frolic_dread_malice_percentages(BoxAnim *anim){
-    // Set the cursor offset from BOX_ANIM_MAX_HEIGHT
-    int y_offset = BOX_ANIM_MAX_HEIGHT + 5;
-    int x_offset = anim->x + 5;
+    static int possible_press = -1;
 
+    while (1) {
+        bool buttonpress = gpio_get(BUTTON_PIN);
+
+        switch (debounce_state) {
+        case NOT_PRESSED:
+            if (buttonpress == 0) {
+                possible_press = buttonpress;
+                debounce_state = MAYBE_PRESSED;
+            }
+            break;
+        case MAYBE_PRESSED:
+            if (buttonpress == 0 && possible_press == 0)
+                debounce_state = PRESSED;
+            if (game_state.play_state == START_SCREEN) {
+                game_state.play_state = PLAYING;
+                PT_SEM_SAFE_SIGNAL(pt, &start_game_sem);
+            }
+            break;
+        case PRESSED:
+            if (buttonpress == 1)
+                debounce_state = MAYBE_NOT_PRESSED;
+            break;
+        case MAYBE_NOT_PRESSED:
+            if (buttonpress == 0)
+                debounce_state = PRESSED;
+            else
+                debounce_state = NOT_PRESSED;
+            break;
+        default:
+            break;
+        }
+
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(30000);
+    }
+
+    PT_END(pt);
+}
+
+int get_VX_ADC() {
+    adc_select_input(2);
+    return adc_read();
+}
+
+int get_VY_ADC() {
+    adc_select_input(1);
+    return adc_read();
+}
+
+static PT_THREAD(protothread_joystick(struct pt *pt)) {
+    PT_BEGIN(pt);
+
+    while (1) {
+        int x_value = get_VX_ADC();
+        int y_value = get_VY_ADC();
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, BLACK);
+
+        if (x_value > X_RIGHT_THRESHOLD) {
+            // Command RIGHT
+            game_state.cursor.x += CELL_WIDTH;
+        } else if (x_value < X_LEFT_THRESHOLD) {
+            // Command LEFT
+            game_state.cursor.x -= CELL_WIDTH;
+        } else if (y_value > Y_DOWN_THRESHOLD) {
+            // Command DOWN
+            game_state.cursor.y += CELL_HEIGHT;
+        } else if (y_value < Y_UP_THRESHOLD) {
+            // Command UP
+            game_state.cursor.y -= CELL_HEIGHT;
+
+            if (game_state.cursor.x > 620)
+                game_state.cursor.x = 620;
+            if (game_state.cursor.x < 0)
+                game_state.cursor.x = 0;
+            if (game_state.cursor.y > 400)
+                game_state.cursor.y = 400;
+            if (game_state.cursor.y < 80)
+                game_state.cursor.y = 80;
+        }
+
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, RED);
+
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(70000);
+    }
+
+    PT_END(pt);
 }
 
 // ==================================================
@@ -149,9 +255,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     setTextSize(2);
     setTextColor(WHITE);
     writeString("Press button to start!");
-
-    // Wait for a button press (for now just a delay of 5 seconds)
-    PT_YIELD_usec(5000000);
+    PT_SEM_WAIT(pt, &start_game_sem);
 
     game_state_init(&game_state, time_us_32());
 
@@ -262,11 +366,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
                           game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
 
-                if (game_state.state[row][col].is_bad_number) {
-                    setTextColor(RED);
-                } else {
-                    setTextColor(WHITE);
-                }
+                setTextColor(WHITE);
 
                 setTextSize(game_state.state[row][col].size);
 
@@ -296,7 +396,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 } // graphics thread
 
 // ==================================================
-// === toggle25 thread on core 0
+// === box animation thread on core 0
 // ==================================================
 // the on-board LED blinks
 static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
@@ -382,6 +482,18 @@ int main() {
     // set the clock
     stdio_init_all();
 
+    // SET UP BUTTON
+    gpio_init(BUTTON_PIN);
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(BUTTON_PIN);
+
+    // SET UP JOYSTICK
+    adc_gpio_init(ADC_GPIO_VX);
+    adc_gpio_init(ADC_GPIO_VY);
+
+    adc_init();
+    adc_select_input(0);
+
     // Initialize the VGA screen
     initVGA();
 
@@ -392,6 +504,8 @@ int main() {
     // === config threads ========================
     // for core 0
     pt_add_thread(protothread_graphics);
+    pt_add_thread(protothread_joystick);
+    pt_add_thread(protothread_button_press);
     //
     // === initalize the scheduler ===============
     pt_schedule_start;
