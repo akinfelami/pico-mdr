@@ -200,8 +200,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     // draw straight line at the top
     // drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
     // draw straight line at the bottom
-    drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height),
-              COLS * cell_width, CYAN);
+    // drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height),
+    //           COLS * cell_width, CYAN);
     // move grid down
 
     // Draw final botton box
@@ -217,6 +217,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     int wfdm_start_x = 40;
 
     // Spawn boids
+    int random_index = rand() % 4;
+    game_state.box_anims[random_index].anim_state = ANIM_GROWING;
 
     while (true) {
         begin_time = time_us_32();
@@ -289,27 +291,65 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 // === toggle25 thread on core 0
 // ==================================================
 // the on-board LED blinks
-static PT_THREAD(protothread_toggle25(struct pt *pt)) {
+static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
     PT_BEGIN(pt);
-    static bool LED_state = false;
-
-    // set up LED p25 to blink
-    gpio_init(25);
-    gpio_set_dir(25, GPIO_OUT);
-    gpio_put(25, true);
-    // data structure for interval timer
-    PT_INTERVAL_INIT();
+    static int spare_time;
+    static int begin_time;
 
     while (1) {
-        // yield time 0.1 second
-        // PT_YIELD_usec(100000) ;
-        PT_YIELD_INTERVAL(100000);
+        begin_time = time_us_32();
+        for (int i = 0; i < 5; i++) {
+            BoxAnim *anim = &game_state.box_anims[i];
+            Box *box = &game_state.boxes[i];
+            switch (anim->anim_state) {
+            case ANIM_GROWING:
+                drawRect(box->x,
+                         box->y - anim->current_anim_height,
+                         box->width,
+                         BOX_ANIM_INCREMENT,
+                         BLACK);
+                anim->current_anim_height += BOX_ANIM_INCREMENT;
+                if (anim->current_anim_height >= BOX_ANIM_MAX_HEIGHT) {
+                    anim->current_anim_height = BOX_ANIM_MAX_HEIGHT;
+                    // Wait a 3s before transitioning to shrinking
+                    // PT_YIELD_usec(3000000);
+                    anim->anim_state = ANIM_SHRINKING;
+                }
+                // Draw the growing box
+                drawRect(box->x,
+                         box->y - anim->current_anim_height,
+                         box->width,
+                         anim->current_anim_height,
+                         CYAN);
+                break;
+            case ANIM_SHRINKING:
+                // Clear the top strip that's disappearing this frame
+                drawRect(box->x,
+                         box->y - anim->current_anim_height,
+                         box->width,
+                         BOX_ANIM_INCREMENT, // Height of the strip to clear
+                         BLACK);
+                anim->current_anim_height -= BOX_ANIM_INCREMENT;
+                if (anim->current_anim_height <= 0) {
+                    anim->current_anim_height = 0;
+                    anim->anim_state = ANIM_IDLE;
+                }
+                // Draw the shrinking box
+                drawRect(box->x,
+                         box->y - anim->current_anim_height,
+                         box->width,
+                         anim->current_anim_height,
+                         CYAN);
+                break;
 
-        // toggle the LED on PICO
-        LED_state = LED_state ? false : true;
-        gpio_put(25, LED_state);
-        //
+            case ANIM_IDLE:
+                break;
+            }
+        }
+
         // NEVER exit while
+        spare_time = FRAME_RATE - (time_us_32() - begin_time);
+        PT_YIELD_usec(spare_time);
     } // END WHILE(1)
     PT_END(pt);
 } // blink thread
@@ -339,7 +379,7 @@ int main() {
     // === config threads ========================
     // for core 0
     pt_add_thread(protothread_graphics);
-    pt_add_thread(protothread_toggle25);
+    pt_add_thread(protothread_graphics_too);
     //
     // === initalize the scheduler ===============
     pt_schedule_start;
