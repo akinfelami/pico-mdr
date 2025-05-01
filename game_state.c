@@ -72,6 +72,10 @@ void game_state_init(GameState *state, int seed) {
     for (int i = 0; i < 5; i++) {
         state->box_anims[i].current_anim_height = 0;
         state->box_anims[i].anim_state = ANIM_IDLE;
+        state->box_anims[i].woe_percentage = 10;
+        state->box_anims[i].frolic_percentage = 10;
+        state->box_anims[i].dread_percentage = 10;
+        state->box_anims[i].malice_percentage = 10;
     }
 }
 

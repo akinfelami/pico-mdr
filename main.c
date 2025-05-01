@@ -129,6 +129,14 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
     writeString(percent_str);
 }
 
+
+void draw_woe_frolic_dread_malice_percentages(BoxAnim *anim){
+    // Set the cursor offset from BOX_ANIM_MAX_HEIGHT
+    int y_offset = BOX_ANIM_MAX_HEIGHT + 5;
+    int x_offset = anim->x + 5;
+
+}
+
 // ==================================================
 // === graphics demo -- RUNNING on core 0
 // ==================================================

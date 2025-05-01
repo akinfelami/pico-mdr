@@ -65,6 +65,7 @@ typedef signed int fix15;
 
 #define BOX_ANIM_INCREMENT 5
 #define BOX_ANIM_MAX_HEIGHT 50
+#define BOX_ANIM_PERCENTAGE_INCREMENT 5
 
 // Define the game state structure
 typedef struct {
@@ -88,6 +89,10 @@ typedef struct {
     int height;
     int current_anim_height;
     AnimationState anim_state;
+    int woe_percentage;
+    int frolic_percentage;
+    int dread_percentage;
+    int malice_percentage;
 } BoxAnim;
 
 typedef struct {
