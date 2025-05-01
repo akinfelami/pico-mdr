@@ -63,6 +63,9 @@ typedef signed int fix15;
 #define hitLeft(a) (a < int2fix15(100))
 #define hitRight(a) (a > int2fix15(540))
 
+#define BOX_ANIM_INCREMENT 5
+#define BOX_ANIM_MAX_HEIGHT 50
+
 // Define the game state structure
 typedef struct {
     int x;
@@ -71,6 +74,21 @@ typedef struct {
     int height;
     int percentage;
 } Box;
+
+typedef enum {
+    ANIM_IDLE,
+    ANIM_GROWING,
+    ANIM_SHRINKING
+} AnimationState;
+
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+    int current_anim_height;
+    AnimationState anim_state;
+} BoxAnim;
 
 typedef struct {
     fix15 x;
@@ -96,12 +114,11 @@ typedef struct {
     BadNumber bad_number;
 } Number;
 
-
-
 typedef struct {
     Number state[ROWS][COLS];
     Box boxes[5];
     Boid boids[NUM_BOIDS];
+    BoxAnim box_anims[5];
 } GameState;
 
 // Function declarations

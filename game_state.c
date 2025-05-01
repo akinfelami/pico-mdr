@@ -68,6 +68,11 @@ void game_state_init(GameState *state, int seed) {
 
     spawn_boid(&state->boids[0], 0);
     spawn_boid(&state->boids[1], 1);
+
+    for (int i = 0; i < 5; i++) {
+        state->box_anims[i].current_anim_height = 0;
+        state->box_anims[i].anim_state = ANIM_IDLE;
+    }
 }
 
 void game_state_update(GameState *state) {
