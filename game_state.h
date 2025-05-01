@@ -121,12 +121,19 @@ typedef struct {
     int height;
 } Cursor;
 
+typedef enum {
+    START_SCREEN,
+    PLAYING,
+    GAME_WON
+} PlayState;
+
 typedef struct {
     Number state[ROWS][COLS];
     Box boxes[5];
     Boid boids[NUM_BOIDS];
     BoxAnim box_anims[5];
     Cursor cursor;
+    PlayState play_state;
 } GameState;
 
 // Function declarations

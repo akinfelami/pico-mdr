@@ -167,7 +167,10 @@ static PT_THREAD(protothread_button_press(struct pt *pt)) {
         case MAYBE_PRESSED:
             if (buttonpress == 0 && possible_press == 0)
                 debounce_state = PRESSED;
-            PT_SEM_SAFE_SIGNAL(pt, &start_game_sem);
+            if (game_state.play_state == START_SCREEN) {
+                game_state.play_state = PLAYING;
+                PT_SEM_SAFE_SIGNAL(pt, &start_game_sem);
+            }
             break;
         case PRESSED:
             if (buttonpress == 1)
