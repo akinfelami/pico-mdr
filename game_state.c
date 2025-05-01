@@ -11,12 +11,12 @@ static inline bool is_valid(int r, int c) {
 // Helper function for DFS grouping
 void dfs_group(GameState *state, int r, int c, int group_id) {
     // Check bounds, if it's a bad number, and if it hasn't been assigned a group yet
-    if (!is_valid(r, c) || !state->state[r][c].is_bad_number || state->state[r][c].bad_group_id != -1) {
+    if (!is_valid(r, c) || !state->state[r][c].is_bad_number || state->state[r][c].bad_number.bad_group_id != -1) {
         return;
     }
 
     // Assign the current cell to the group
-    state->state[r][c].bad_group_id = group_id;
+    state->state[r][c].bad_number.bad_group_id = group_id;
 
     // Recursively visit all 8 neighbors
     for (int dr = -1; dr <= 1; ++dr) {
@@ -34,9 +34,11 @@ void group_bad_numbers(GameState *state) {
     for (int r = 0; r < ROWS; ++r) {
         for (int c = 0; c < COLS; ++c) {
             // If it's a bad number and hasn't been assigned to a group yet
-            if (state->state[r][c].is_bad_number && state->state[r][c].bad_group_id == -1) {
+            if (state->state[r][c].is_bad_number && state->state[r][c].bad_number.bad_group_id == -1) {
                 // Start a DFS from this cell to find all connected bad numbers
                 dfs_group(state, r, c, next_group_id);
+                // Assign one of 4 bins to the group so all bad numbers in the group have the same bin
+                state->state[r][c].bad_number.bin_id = rand() % 4;
                 // Increment the group ID for the next group found
                 next_group_id++;
             }
@@ -56,7 +58,8 @@ void game_state_init(GameState *state) {
             state->state[row][col].size = 1;
             state->state[row][col].animated_last_frame = 0;
             state->state[row][col].is_bad_number = (random_number & 0xF) > 14;
-            state->state[row][col].bad_group_id = -1;
+            state->state[row][col].bad_number.bad_group_id = -1;
+            state->state[row][col].bad_number.bin_id = -1;
         }
     }
 
@@ -282,48 +285,6 @@ void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 threshold_x, fix15 t
     }
 }
 
-// Replace the old update_group_animations function
-void update_group_animations(GameState *state) {
-    // Track which bad groups were hit by a boid this frame
-    bool group_hit[MAX_BAD_GROUPS] = {false};
-
-    // Reset size for all bad numbers first
-    for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-            if (state->state[r][c].is_bad_number) {
-                state->state[r][c].size = 1; // Reset size to default
-            }
-        }
-    }
-
-    // First pass: Identify which bad groups were hit
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            // Check if the cell was animated in the collision check AND is a bad number
-            if (state->state[i][j].animated_last_frame && state->state[i][j].is_bad_number) { // Use animated_last_frame
-                int group_id = state->state[i][j].bad_group_id;
-                // Ensure group_id is valid before using as index
-                if (group_id >= 0 && group_id < MAX_BAD_GROUPS) {
-                    group_hit[group_id] = true;
-                }
-            }
-        }
-    }
-
-    // Second pass: Set size and mark for redraw for bad numbers in hit groups
-    for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-            // If it's a bad number and its group was hit
-            if (state->state[r][c].is_bad_number) {
-                int group_id = state->state[r][c].bad_group_id;
-                if (group_id >= 0 && group_id < MAX_BAD_GROUPS && group_hit[group_id]) {
-                    state->state[r][c].size = 2;
-                }
-            }
-        }
-    }
-}
-
 void check_collisions_and_animate(GameState *state) {
 
     fix15 cell_width = int2fix15(CELL_WIDTH);
@@ -360,6 +321,4 @@ void check_collisions_and_animate(GameState *state) {
             }
         }
     }
-    // Update group animations after all collisions are checked
-    // update_group_animations(state);
 }

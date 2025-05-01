@@ -82,14 +82,21 @@ typedef struct {
 } Boid;
 
 typedef struct {
+    int bin_id;
+    int bad_group_id;
+} BadNumber;
+
+typedef struct {
     int x;
     int y;
     int number;
     int size;
     int animated_last_frame;
-    int bad_group_id;
     bool is_bad_number;
+    BadNumber bad_number;
 } Number;
+
+
 
 typedef struct {
     Number state[ROWS][COLS];
