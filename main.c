@@ -221,14 +221,14 @@ static PT_THREAD(protothread_joystick(struct pt *pt)) {
             // Command UP
             game_state.cursor.y -= CELL_HEIGHT;
 
-            if (game_state.cursor.x > 640)
-                game_state.cursor.x = 640;
+            if (game_state.cursor.x > 620)
+                game_state.cursor.x = 620;
             if (game_state.cursor.x < 0)
                 game_state.cursor.x = 0;
-            if (game_state.cursor.y > 480)
-                game_state.cursor.y = 480;
-            if (game_state.cursor.y < 0)
-                game_state.cursor.y = 0;
+            if (game_state.cursor.y > 400)
+                game_state.cursor.y = 400;
+            if (game_state.cursor.y < 80)
+                game_state.cursor.y = 80;
         }
 
         drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, RED);
