@@ -71,8 +71,6 @@ void game_state_init(GameState *state, int seed) {
 }
 
 void game_state_update(GameState *state) {
-    srand(time(NULL));
-
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
             state->state[row][col].number = rand() % 10;
