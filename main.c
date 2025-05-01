@@ -52,11 +52,7 @@
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
-#define FRAME_RATE 60000
-
-// Accumulator variables for boids
-char user_string[40] = "Type up to 40 characters";
-int new_str = 1;
+#define FRAME_RATE 60000 // 60 FPS
 
 GameState game_state;
 
@@ -190,7 +186,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 
     grid_start_y = progress_bar_y + progress_bar_height + 30; // Start grid below
     // draw straight line at the top
-    drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
+    // drawHLine(grid_start_x, grid_start_y, COLS * cell_width, CYAN);
     // draw straight line at the bottom
     drawHLine(grid_start_x, grid_start_y + ((ROWS + 1) * cell_height),
               COLS * cell_width, CYAN);
@@ -213,41 +209,25 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     while (true) {
         begin_time = time_us_32();
 
-        // Reset number positions to their grid locations before collision checks
+        // Reset number positions, sizes, and animation flags before collision checks
         for (int row = 0; row < ROWS; row++) {
             for (int col = 0; col < COLS; col++) {
                 if (game_state.state[row][col].animated_last_frame == 1) {
+                    // Clear the area with the correct size
                     fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
                              CELL_WIDTH, CELL_HEIGHT, BLACK);
-                    game_state.state[row][col].animated_last_frame = 0;
                 }
                 game_state.state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
                 game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
                 game_state.state[row][col].size = 1;
+                game_state.state[row][col].animated_last_frame = 0;
             }
         }
 
-        // Draw the numbers from the game state
-        // for (int row = 0; row < ROWS; row++) {
-        //     for (int col = 0; col < COLS; col++) {
-        //         // convert number to string
-        //         num_str[0] = '0' + game_state.state[row][col].number;
-
-        //         // set text properties
-        //         setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
-        //                   game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
-        //         setTextColor(WHITE);
-        //         setTextSize(game_state.state[row][col].size);
-
-        //         // draw the number
-        //         writeString(num_str);
-        //     }
-        // }
-
-        // Then update the boids
+        // Update the boids
         update_boids(&game_state);
 
-        // check collisions
+        // Check collisions and mark numbers for animation
         check_collisions_and_animate(&game_state);
 
         // Draw the numbers from the game state
@@ -259,18 +239,15 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 // set text properties
                 setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
                           game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
+
                 setTextColor(WHITE);
+
                 setTextSize(game_state.state[row][col].size);
 
                 // draw the number
                 writeString(num_str);
             }
         }
-
-        // Draw the collision radius
-        // for (int i = 0; i < NUM_BOIDS; i++) {
-        //     drawCircle(fix2int15(game_state.boids[i].x), fix2int15(game_state.boids[i].y), BOID_COLLISION_RADIUS, WHITE);
-        // }
 
         //  update the game state
         for (int i = 0; i < 5; i++) {
@@ -285,8 +262,6 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                        game_state.boxes[i].width, game_state.boxes[i].height,
                        game_state.boxes[i].percentage, i);
         }
-
-        // game_state_update(&game_state);
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
         PT_YIELD_usec(spare_time);

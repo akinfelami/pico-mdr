@@ -47,6 +47,9 @@ typedef signed int fix15;
 #define CELL_HEIGHT 40
 #define MAX_PIXEL_SHIFT int2fix15(10)
 
+// Define a maximum possible number of bad groups
+#define MAX_BAD_GROUPS (ROWS * COLS)
+
 // Numbers within this radius of the boid are considered surrounding the boid
 #define BOID_COLLISION_RADIUS 40
 
@@ -79,12 +82,21 @@ typedef struct {
 } Boid;
 
 typedef struct {
+    int bin_id;
+    int bad_group_id;
+} BadNumber;
+
+typedef struct {
     int x;
     int y;
     int number;
     int size;
     int animated_last_frame;
+    bool is_bad_number;
+    BadNumber bad_number;
 } Number;
+
+
 
 typedef struct {
     Number state[ROWS][COLS];
@@ -101,5 +113,5 @@ void spawn_boid(Boid *boid, int group_id);
 void update_boids(GameState *state);
 void check_collisions_and_animate(GameState *state);
 void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 shift_x, fix15 shift_y);
-
+void group_bad_numbers(GameState *state);
 #endif // GAME_STATE_H
