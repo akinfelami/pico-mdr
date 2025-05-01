@@ -47,6 +47,9 @@ typedef signed int fix15;
 #define CELL_HEIGHT 40
 #define MAX_PIXEL_SHIFT int2fix15(10)
 
+// Define a maximum possible number of bad groups
+#define MAX_BAD_GROUPS (ROWS * COLS)
+
 // Numbers within this radius of the boid are considered surrounding the boid
 #define BOID_COLLISION_RADIUS 40
 

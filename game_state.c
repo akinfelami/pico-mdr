@@ -1,5 +1,6 @@
 #include "game_state.h"
 #include "vga16_graphics.h"
+#include <stdbool.h> // Include for bool type
 #include <stdlib.h>
 #include <time.h>
 
@@ -269,32 +270,54 @@ void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 threshold_x, fix15 t
     fix15 shift_x = ((rand() & 0xFFFF) * 3) - int2fix15(3);
     fix15 shift_y = ((rand() & 0xFFFF) * 3) - int2fix15(3);
 
-    // erase numbers first
-    fillRect(num->x, num->y, CELL_WIDTH, CELL_HEIGHT, BLACK);
-    num->animated_last_frame = 1;
+    num->animated_last_frame = 1; // Mark as animated
 
     // Update the number's position
     num->x += fix2int15(shift_x);
     num->y += fix2int15(shift_y);
-    num->size = 1;
+    if (num->is_bad_number) {
+        num->size = 2; // Increase size for bad numbers
+    } else {
+        num->size = 1; // Reset size for good numbers
+    }
 }
 
-// TODO: Potential optimization: No need to check all cells every frame;
-// keep ids of animated cells and only check those.
+// Replace the old update_group_animations function
 void update_group_animations(GameState *state) {
-    // Track which groups have been hit this frame
+    // Track which bad groups were hit by a boid this frame
+    bool group_hit[MAX_BAD_GROUPS] = {false};
+
+    // Reset size for all bad numbers first
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            if (state->state[r][c].is_bad_number) {
+                state->state[r][c].size = 1; // Reset size to default
+            }
+        }
+    }
+
+    // First pass: Identify which bad groups were hit
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            if (state->state[i][j].animated_last_frame && state->state[i][j].is_bad_number) {
-                // Get the group ID of the animated bad number
+            // Check if the cell was animated in the collision check AND is a bad number
+            if (state->state[i][j].animated_last_frame && state->state[i][j].is_bad_number) { // Use animated_last_frame
                 int group_id = state->state[i][j].bad_group_id;
-                // Make all numbers in the same group bigger
-                for (int r = 0; r < ROWS; r++) {
-                    for (int c = 0; c < COLS; c++) {
-                        if (state->state[r][c].bad_group_id == group_id) {
-                            state->state[r][c].size = 2;
-                        }
-                    }
+                // Ensure group_id is valid before using as index
+                if (group_id >= 0 && group_id < MAX_BAD_GROUPS) {
+                    group_hit[group_id] = true;
+                }
+            }
+        }
+    }
+
+    // Second pass: Set size and mark for redraw for bad numbers in hit groups
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            // If it's a bad number and its group was hit
+            if (state->state[r][c].is_bad_number) {
+                int group_id = state->state[r][c].bad_group_id;
+                if (group_id >= 0 && group_id < MAX_BAD_GROUPS && group_hit[group_id]) {
+                    state->state[r][c].size = 2;
                 }
             }
         }
@@ -330,12 +353,13 @@ void check_collisions_and_animate(GameState *state) {
                 fix15 threshold_y = half_cell_height + boid_radius_fix;
 
                 if ((abs_dx < threshold_x) && (abs_dy < threshold_y)) {
-                    // Collision detected! Animate the number.
+                    // Collision detected! Animate the number
                     animate_numbers(&state->state[i][j], dx, dy, threshold_x, threshold_y);
                     break;
                 }
             }
         }
     }
-    update_group_animations(state);
+    // Update group animations after all collisions are checked
+    // update_group_animations(state);
 }
