@@ -67,6 +67,8 @@ int Y_DOWN_THRESHOLD = 3000;
 int Y_UP_THRESHOLD = 500;
 
 GameState game_state;
+// semaphore
+static struct pt_sem start_game_sem;
 
 // ==================================================
 // === lumon logo : Pass the center of the logo and dimension (w, h)
@@ -165,9 +167,7 @@ static PT_THREAD(protothread_button_press(struct pt *pt)) {
         case MAYBE_PRESSED:
             if (buttonpress == 0 && possible_press == 0)
                 debounce_state = PRESSED;
-            game_state.cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
-            game_state.cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
-            // Button pressed here.
+            PT_SEM_SAFE_SIGNAL(pt, &start_game_sem);
             break;
         case PRESSED:
             if (buttonpress == 1)
@@ -252,9 +252,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     setTextSize(2);
     setTextColor(WHITE);
     writeString("Press button to start!");
-
-    // Wait for a button press (for now just a delay of 5 seconds)
-    PT_YIELD_usec(5000000);
+    PT_SEM_WAIT(pt, &start_game_sem);
 
     game_state_init(&game_state, time_us_32());
 
@@ -365,11 +363,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
                           game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
 
-                if (game_state.state[row][col].is_bad_number) {
-                    setTextColor(RED);
-                } else {
-                    setTextColor(WHITE);
-                }
+                setTextColor(WHITE);
 
                 setTextSize(game_state.state[row][col].size);
 
