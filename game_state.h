@@ -105,7 +105,7 @@ typedef struct {
 } GameState;
 
 // Function declarations
-void game_state_init(GameState *state);
+void game_state_init(GameState *state, int seed);
 void game_state_update(GameState *state);
 void game_state_draw(GameState *state);
 void game_state_update_boxes(Box *state, int x, int y, int w, int h, int percentage);

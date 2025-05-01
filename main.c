@@ -134,7 +134,19 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
 // ==================================================
 static PT_THREAD(protothread_graphics(struct pt *pt)) {
     PT_BEGIN(pt);
-    game_state_init(&game_state);
+
+    // ---- To Start the game; user has to press some button ---- //
+    // Write the instructions on the screen
+    setCursor(200, 240);
+    setTextSize(2);
+    setTextColor(WHITE);
+    writeString("Press button to start!");
+
+    // Wait for a button press (for now just a delay of 5 seconds)
+    PT_YIELD_usec(5000000);
+
+    game_state_init(&game_state, time_us_32());
+
     static int begin_time;
     static int spare_time;
 
@@ -240,7 +252,11 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 setCursor(game_state.state[row][col].x + CELL_WIDTH / 2,
                           game_state.state[row][col].y + CELL_HEIGHT / 2); // center text in cell
 
-                setTextColor(WHITE);
+                if (game_state.state[row][col].is_bad_number) {
+                    setTextColor(RED);
+                } else {
+                    setTextColor(WHITE);
+                }
 
                 setTextSize(game_state.state[row][col].size);
 

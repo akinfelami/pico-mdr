@@ -46,8 +46,8 @@ void group_bad_numbers(GameState *state) {
     }
 }
 
-void game_state_init(GameState *state) {
-    srand(time(NULL));
+void game_state_init(GameState *state, int seed) {
+    srand(seed);
 
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
