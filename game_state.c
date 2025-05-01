@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-
-
 void game_state_init(GameState *state) {
     srand(time(NULL));
 
@@ -20,12 +18,11 @@ void game_state_init(GameState *state) {
     spawn_boid(&state->boids[0], 0);
     spawn_boid(&state->boids[1], 1);
 
-    /*START OF CODE ADDED ON 4/27*/
-
-    state->selected_row = rand() % ROWS;
-    state->selected_col = rand() % COLS;
-
-    /*END OF CODE ADDED ON 4/27*/
+    // Initialize cursor
+    state->cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
+    state->cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
+    state->cursor.width = CELL_WIDTH;
+    state->cursor.height = CELL_HEIGHT;
 }
 
 void game_state_update(GameState *state) {

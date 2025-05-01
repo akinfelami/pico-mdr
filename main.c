@@ -29,27 +29,26 @@
 // === VGA graphics library
 // ==========================================
 #include "game_state.h"
-#include "vga16_graphics.h"
-#include <stdio.h>
-#include <stdlib.h> // For abs() function
-#include <math.h>
 #include "hardware/dma.h"
 #include "hardware/pio.h"
-#include "pico/stdlib.h"
 #include "pico/stdio_usb.h"
+#include "pico/stdlib.h"
+#include "vga16_graphics.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h> // For abs() function
 // // Our assembled programs:
 // // Each gets the name <pio_filename.pio.h>
-#include "hsync.pio.h"
-#include "vsync.pio.h"
-#include "rgb.pio.h"
 #include "game_state.h"
-
+#include "hsync.pio.h"
+#include "rgb.pio.h"
+#include "vsync.pio.h"
 
 // ==========================================
 // === protothreads globals
 // ==========================================
-#include "hardware/sync.h"
 #include "hardware/adc.h"
+#include "hardware/sync.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
 #include "string.h"
@@ -57,7 +56,6 @@
 #include "pt_cornell_rp2040_v1_3.h"
 
 #define FRAME_RATE 60000
-
 
 // Accumulator variables for boids
 char user_string[40] = "Type up to 40 characters";
@@ -74,7 +72,6 @@ int Y_DOWN_THRESHOLD = 3000;
 int Y_UP_THRESHOLD = 500;
 
 volatile int march_offset = 0;
-
 
 GameState game_state;
 
@@ -231,7 +228,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     while (true) {
         begin_time = time_us_32();
 
-        march_offset = (march_offset + 1) % 8;
+        // march_offset = (march_offset + 1) % 8;
 
         // Reset number positions to their grid locations before collision checks
         for (int row = 0; row < ROWS; row++) {
@@ -246,6 +243,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                 game_state.state[row][col].size = 1;
             }
         }
+
+        // Erase cursor
 
         // Draw the numbers from the game state
         // for (int row = 0; row < ROWS; row++) {
@@ -289,34 +288,33 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 
         /*Added on 4/27*/
 
-        int selected_x = game_state.state[game_state.selected_row][game_state.selected_col].x;
-        int selected_y = game_state.state[game_state.selected_row][game_state.selected_col].y;
+        // int selected_x = game_state.state[game_state.selected_row][game_state.selected_col].x;
+        // int selected_y = game_state.state[game_state.selected_row][game_state.selected_col].y;
 
-        for (int x = 0; x < CELL_WIDTH; x += DASH_LENGTH * 2) {
-            int start_x = selected_x + (x + march_offset) % CELL_WIDTH;
-            // Draw on top edge
-            drawHLine(start_x, selected_y, DASH_LENGTH, DARK_GREEN);
-            // Draw on bottom edge
-            drawHLine(start_x, selected_y + CELL_HEIGHT - 1, DASH_LENGTH, DARK_GREEN);
-            }       
-        
-        for (int y = 0; y < CELL_HEIGHT; y += DASH_LENGTH * 2) {
-            int start_y = selected_y + (y + march_offset) % CELL_HEIGHT;
-            // Left edge
-            drawVLine(selected_x, start_y, DASH_LENGTH, DARK_GREEN);
-            // Right edge
-            drawVLine(selected_x + CELL_WIDTH - 1, start_y, DASH_LENGTH, DARK_GREEN);
-        }
+        // for (int x = 0; x < CELL_WIDTH; x += DASH_LENGTH * 2) {
+        //     int start_x = selected_x + (x + march_offset) % CELL_WIDTH;
+        //     // Draw on top edge
+        //     drawHLine(start_x, selected_y, DASH_LENGTH, DARK_GREEN);
+        //     // Draw on bottom edge
+        //     drawHLine(start_x, selected_y + CELL_HEIGHT - 1, DASH_LENGTH, DARK_GREEN);
+        // }
+
+        // for (int y = 0; y < CELL_HEIGHT; y += DASH_LENGTH * 2) {
+        //     int start_y = selected_y + (y + march_offset) % CELL_HEIGHT;
+        //     // Left edge
+        //     drawVLine(selected_x, start_y, DASH_LENGTH, DARK_GREEN);
+        //     // Right edge
+        //     drawVLine(selected_x + CELL_WIDTH - 1, start_y, DASH_LENGTH, DARK_GREEN);
+        // }
 
         /*End of code added on 4/27*/
-
-       
-
 
         // Draw the collision radius
         // for (int i = 0; i < NUM_BOIDS; i++) {
         //     drawCircle(fix2int15(game_state.boids[i].x), fix2int15(game_state.boids[i].y), BOID_COLLISION_RADIUS, WHITE);
         // }
+
+        // Draw the cursor
 
         //  update the game state
         for (int i = 0; i < 5; i++) {
@@ -332,8 +330,6 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
                        game_state.boxes[i].percentage, i);
         }
 
-    
-
         // game_state_update(&game_state);
 
         spare_time = FRAME_RATE - (time_us_32() - begin_time);
@@ -345,7 +341,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 // ==================================================
 // === toggle25 thread on core 0
 // ==================================================
-//the on-board LED blinks
+// the on-board LED blinks
 static PT_THREAD(protothread_toggle25(struct pt *pt)) {
     PT_BEGIN(pt);
     static bool LED_state = false;
@@ -379,163 +375,105 @@ void core1_main() {
     //  === add threads  ====================
 }
 
-
-void setup_joystick() {
-
-    //printf("BOOTED_ADC \n");
-
-    adc_gpio_init(ADC_GPIO_VX);
-    adc_gpio_init(ADC_GPIO_VY);
-
-    adc_init();
-    adc_select_input(0);
-}
-
-void setup_button(){
-
-    //printf("BOOTED_BUTTON \n");
-
-    gpio_init(BUTTON_PIN);
-    gpio_set_dir(BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(BUTTON_PIN);
-
-}
-
-bool button_debouncing(){
-
-    //printf("BOOTED_Debouncing \n");
-
-    static enum {
-    NOT_PRESSED,
-    MAYBE_PRESSED,
-    PRESSED,
-    MAYBE_NOT_PRESSED
-    } debounce_state = NOT_PRESSED;
-
-    static int possible_press = -1;
-
-    while(1){
-        bool buttonpress = gpio_get(BUTTON_PIN);
-        
-        switch(debounce_state){
-        case NOT_PRESSED:
-            if(buttonpress == 0){
-                possible_press = buttonpress;
-                debounce_state = MAYBE_PRESSED;
-            } 
-            break;
-        case MAYBE_PRESSED:
-            if(buttonpress == 0 && possible_press == 0) debounce_state = PRESSED;
-            else debounce_state = NOT_PRESSED;
-            break;
-        case PRESSED:
-            if (buttonpress == 1 ) debounce_state = MAYBE_NOT_PRESSED;
-            break;
-        case MAYBE_NOT_PRESSED:
-            if (buttonpress == 0) debounce_state = PRESSED;
-            else debounce_state = NOT_PRESSED;
-            break;
-        default:
-            break;
-        } 
-    }
-    if (debounce_state == PRESSED) return true; 
-    else return false;   
-}
-
-
-int get_VX_ADC(){
-    //printf("BOOTED_get_vx \n");
+int get_VX_ADC() {
     adc_select_input(2);
     return adc_read();
 }
 
-int get_VY_ADC(){
-    //printf("BOOTED_get_vy \n");
+int get_VY_ADC() {
     adc_select_input(1);
     return adc_read();
 }
 
-bool get_button_press(){
-    //printf("BOOTED_get_buttonpress \n");
-    bool is_button_pressed = button_debouncing();
-    if(is_button_pressed == true) return true;
-    else return false; 
-}
-
-static PT_THREAD(protothread_joystick(struct pt *pt)){
+static PT_THREAD(protothread_button_press(struct pt *pt)) {
     PT_BEGIN(pt);
-     static enum {
-    NOT_PRESSED,
-    MAYBE_PRESSED,
-    PRESSED,
-    MAYBE_NOT_PRESSED
+    static enum {
+        NOT_PRESSED,
+        MAYBE_PRESSED,
+        PRESSED,
+        MAYBE_NOT_PRESSED
     } debounce_state = NOT_PRESSED;
-
-    static uint32_t last_move_time = 0;
-    
 
     static int possible_press = -1;
 
-    while(1){
-        uint32_t current_move_time = time_us_32();
+    while (1) {
         bool buttonpress = gpio_get(BUTTON_PIN);
-        
-        switch(debounce_state){
+
+        switch (debounce_state) {
         case NOT_PRESSED:
-            if(buttonpress == 0){
+            if (buttonpress == 0) {
                 possible_press = buttonpress;
                 debounce_state = MAYBE_PRESSED;
-            } 
+            }
             break;
         case MAYBE_PRESSED:
-            if(buttonpress == 0 && possible_press == 0) debounce_state = PRESSED;
-            else debounce_state = NOT_PRESSED;
+            if (buttonpress == 0 && possible_press == 0)
+                debounce_state = PRESSED;
+            game_state.cursor.x = GRID_START_X + (COLS / 2) * CELL_WIDTH;
+            game_state.cursor.y = GRID_START_Y + (ROWS / 2) * CELL_HEIGHT;
+            // Button pressed here.
             break;
         case PRESSED:
-            if (buttonpress == 1 ) debounce_state = MAYBE_NOT_PRESSED;
+            if (buttonpress == 1)
+                debounce_state = MAYBE_NOT_PRESSED;
             break;
         case MAYBE_NOT_PRESSED:
-            if (buttonpress == 0) debounce_state = PRESSED;
-            else debounce_state = NOT_PRESSED;
+            if (buttonpress == 0)
+                debounce_state = PRESSED;
+            else
+                debounce_state = NOT_PRESSED;
             break;
         default:
             break;
-        } 
-    
-        
-        int x_value = get_VX_ADC();
-        // printf("The X Value is: %d\n", x_value);
-        int y_value = get_VY_ADC();
-        //printf("The Y Value is : %d\n", y_value);
-
-        if((current_move_time - last_move_time) > 250000){
-        
-        if (x_value > X_RIGHT_THRESHOLD){
-             printf("COMMAND RIGHT\n ");
-             if(game_state.selected_col != COLS-1) game_state.selected_col += 1;
-        }
-       //else printf("The X Value is: %d\n", x_value);
-        else if (x_value < X_LEFT_THRESHOLD){
-            printf("COMMAND LEFT\n ");
-            if (game_state.selected_col != 0) game_state.selected_col -= 1;
-        }
-        else if (y_value > Y_DOWN_THRESHOLD) {
-            printf("COMMAND DOWN\n ");
-            if (game_state.selected_row != 0) game_state.selected_row -= 1;
-        }
-        else if (y_value < Y_UP_THRESHOLD){
-            printf("COMMAND UP\n ");
-            if (game_state.selected_row != ROWS-1) game_state.selected_row += 1;
-        }
-        last_move_time = current_move_time;
-        if (debounce_state == PRESSED) printf("Button was Pressed \n");
         }
 
-        
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(30000);
     }
-    
-    PT_YIELD_usec(100000);
+
+    PT_END(pt);
+}
+
+static PT_THREAD(protothread_joystick(struct pt *pt)) {
+    PT_BEGIN(pt);
+
+    while (1) {
+        int x_value = get_VX_ADC();
+        int y_value = get_VY_ADC();
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, BLACK);
+
+        if (x_value > X_RIGHT_THRESHOLD) {
+            // Command RIGHT
+            printf("RIGHT\n");
+            game_state.cursor.x += CELL_WIDTH;
+        } else if (x_value < X_LEFT_THRESHOLD) {
+            // Command LEFT
+            printf("LEFT\n");
+            game_state.cursor.x -= CELL_WIDTH;
+        } else if (y_value > Y_DOWN_THRESHOLD) {
+            printf("DOWN\n");
+            // Command DOWN
+            game_state.cursor.y += CELL_HEIGHT;
+        } else if (y_value < Y_UP_THRESHOLD) {
+            printf("UP\n");
+            // Command UP
+            game_state.cursor.y -= CELL_HEIGHT;
+
+            if (game_state.cursor.x > 640)
+                game_state.cursor.x = 640;
+            if (game_state.cursor.x < 0)
+                game_state.cursor.x = 0;
+            if (game_state.cursor.y > 480)
+                game_state.cursor.y = 480;
+            if (game_state.cursor.y < 0)
+                game_state.cursor.y = 0;
+        }
+
+        drawRect(game_state.cursor.x, game_state.cursor.y, game_state.cursor.width, game_state.cursor.height, RED);
+
+        // Schedule to be called again in 30ms.
+        PT_YIELD_usec(70000);
+    }
 
     PT_END(pt);
 }
@@ -545,12 +483,19 @@ static PT_THREAD(protothread_joystick(struct pt *pt)){
 int main() {
     // set the clock
     stdio_init_all();
+    printf("Initializing...\n");
 
-    sleep_ms(3000);
-    printf("BOOTED\n");
-    
-    setup_button();
-    setup_joystick();
+    // SET UP BUTTON
+    gpio_init(BUTTON_PIN);
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(BUTTON_PIN);
+
+    // SET UP JOYSTICK
+    adc_gpio_init(ADC_GPIO_VX);
+    adc_gpio_init(ADC_GPIO_VY);
+
+    adc_init();
+    adc_select_input(0);
 
     // Initialize the VGA screen
     initVGA();
@@ -561,9 +506,10 @@ int main() {
 
     // === config threads ========================
     // for core 0
-    //pt_add_thread(protothread_graphics);
+    pt_add_thread(protothread_graphics);
     pt_add_thread(protothread_toggle25);
     pt_add_thread(protothread_joystick);
+    pt_add_thread(protothread_button_press);
     //
     // === initalize the scheduler ===============
     pt_schedule_start;
