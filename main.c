@@ -295,12 +295,15 @@ static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
     PT_BEGIN(pt);
     static int spare_time;
     static int begin_time;
+    static int i;
+    static BoxAnim *anim;
+    static Box *box;
 
     while (1) {
         begin_time = time_us_32();
-        for (int i = 0; i < 5; i++) {
-            BoxAnim *anim = &game_state.box_anims[i];
-            Box *box = &game_state.boxes[i];
+        for (i = 0; i < 5; i++) {
+            anim = &game_state.box_anims[i];
+            box = &game_state.boxes[i];
             switch (anim->anim_state) {
             case ANIM_GROWING:
                 drawRect(box->x,
@@ -312,7 +315,7 @@ static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
                 if (anim->current_anim_height >= BOX_ANIM_MAX_HEIGHT) {
                     anim->current_anim_height = BOX_ANIM_MAX_HEIGHT;
                     // Wait a 3s before transitioning to shrinking
-                    // PT_YIELD_usec(3000000);
+                    PT_YIELD_usec(3000000);
                     anim->anim_state = ANIM_SHRINKING;
                 }
                 // Draw the growing box
@@ -360,6 +363,8 @@ static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
 void core1_main() {
     //
     //  === add threads  ====================
+    pt_add_thread(protothread_graphics_too);
+    pt_schedule_start;
 }
 
 // ========================================
@@ -379,7 +384,6 @@ int main() {
     // === config threads ========================
     // for core 0
     pt_add_thread(protothread_graphics);
-    pt_add_thread(protothread_graphics_too);
     //
     // === initalize the scheduler ===============
     pt_schedule_start;
