@@ -143,6 +143,58 @@ void draw_boxes(int x, int y, int w, int h, int percentage, int idx) {
     writeString(percent_str);
 }
 
+void draw_woe_frolic_dread_malice_percentages(Box *box, BoxAnim *anim) {
+    int top_of_anim_box_y = box->y - anim->current_anim_height;
+    int y_offset = 5;
+    int label_x_offset = box->x + 5;
+    int label_width = 2 * 6;                                      // "WO" is 2 chars * 6 pixels/char
+    int bar_x_offset = label_x_offset + label_width + 4;          // Start bar 4px after label
+    int bar_max_width = box->width - (bar_x_offset - box->x) - 5; // Max width leaving 5px padding on right
+    int bar_height = 6;                                           // Height of the progress bar, slightly smaller than text
+
+    char titles[4][3] = {"WO", "FC", "DR", "MA"};
+    int percentages[4] = {// Get percentages from the BoxAnim struct
+                          anim->woe_percentage,
+                          anim->frolic_percentage,
+                          anim->dread_percentage,
+                          anim->malice_percentage};
+    int text_height = 8;  // Approximate height of size 1 text
+    int line_spacing = 2; // Space between lines
+    // char percent_str[6]; // No longer needed if not drawing percentage text
+
+    // Ensure bar_max_width is reasonable
+    if (bar_max_width < 10)
+        bar_max_width = 10; // Minimum bar width
+
+    for (int i = 0; i < 4; i++) {
+        int current_y = top_of_anim_box_y + y_offset + (i * (text_height + line_spacing));
+        int bar_center_y = current_y + (text_height / 2) - (bar_height / 2); // Center bar vertically with text
+
+        // Ensure drawing is within the animated box bounds
+        if (current_y < box->y && current_y >= top_of_anim_box_y && (current_y + text_height) <= box->y) {
+            // Draw Label
+            setCursor(label_x_offset, current_y);
+            setTextSize(1);
+            setTextColor(WHITE);
+            writeString(titles[i]);
+
+            // Draw Progress Bar Outline
+            drawRect(bar_x_offset, bar_center_y, bar_max_width, bar_height, WHITE);
+
+            // Calculate and draw filled portion
+            int fill_w = (bar_max_width * percentages[i]) / 100;
+            if (fill_w < 0)
+                fill_w = 0;
+            if (fill_w > bar_max_width)
+                fill_w = bar_max_width; // Clamp to max width
+
+            if (fill_w > 0) {
+                fillRect(bar_x_offset, bar_center_y, fill_w, bar_height, WHITE); // Fill with WHITE
+            }
+        }
+    }
+}
+
 static PT_THREAD(protothread_button_press(struct pt *pt)) {
     PT_BEGIN(pt);
     static enum {
@@ -422,20 +474,29 @@ static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
                 anim->current_anim_height += BOX_ANIM_INCREMENT;
                 if (anim->current_anim_height >= BOX_ANIM_MAX_HEIGHT) {
                     anim->current_anim_height = BOX_ANIM_MAX_HEIGHT;
+                    // Draw the final, fully grown box
+                    drawRect(box->x,
+                             box->y - anim->current_anim_height,
+                             box->width,
+                             anim->current_anim_height,
+                             CYAN);
                     // Wait a 3s before transitioning to shrinking
+                    draw_woe_frolic_dread_malice_percentages(box, anim);
                     PT_YIELD_usec(3000000);
+                    // Clear the box area before transitioning to shrinking
                     anim->anim_state = ANIM_SHRINKING;
+                } else {
+                    // Draw the growing box
+                    drawRect(box->x,
+                             box->y - anim->current_anim_height,
+                             box->width,
+                             anim->current_anim_height,
+                             CYAN);
                 }
-                // Draw the growing box
-                drawRect(box->x,
-                         box->y - anim->current_anim_height,
-                         box->width,
-                         anim->current_anim_height,
-                         CYAN);
                 break;
             case ANIM_SHRINKING:
                 // Clear the top strip that's disappearing this frame
-                drawRect(box->x,
+                fillRect(box->x,
                          box->y - anim->current_anim_height,
                          box->width,
                          BOX_ANIM_INCREMENT, // Height of the strip to clear
@@ -444,13 +505,14 @@ static PT_THREAD(protothread_graphics_too(struct pt *pt)) {
                 if (anim->current_anim_height <= 0) {
                     anim->current_anim_height = 0;
                     anim->anim_state = ANIM_IDLE;
-                }
+                }else{
                 // Draw the shrinking box
                 drawRect(box->x,
                          box->y - anim->current_anim_height,
                          box->width,
                          anim->current_anim_height,
                          CYAN);
+                }
                 break;
 
             case ANIM_IDLE:
