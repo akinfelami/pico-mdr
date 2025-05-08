@@ -19,7 +19,8 @@ void game_state_init(GameState *state, int seed) {
       state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
       state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
       state->state[row][col].size = 1;
-      state->state[row][col].animated_last_frame = 0;
+      state->state[row][col].animated_last_frame_by_boid0 = 0;
+      state->state[row][col].animated_last_frame_by_boid1 = 0;
       state->state[row][col].is_bad_number = (random_number & 0xF) > 14;
       state->state[row][col].bad_number.bin_id = -1;
     }
@@ -261,8 +262,6 @@ void animate_numbers(Number *num, fix15 dx, fix15 dy, fix15 threshold_x,
   fix15 shift_x = ((rand() & 0xFFFF) * 3) - int2fix15(3);
   fix15 shift_y = ((rand() & 0xFFFF) * 3) - int2fix15(3);
 
-  num->animated_last_frame = 1; // Mark as animated
-
   // Update the number's position
   num->x += fix2int15(shift_x);
   num->y += fix2int15(shift_y);
@@ -305,6 +304,13 @@ void check_collisions_and_animate(GameState *state) {
           // Collision detected! Animate the number
           animate_numbers(&state->state[i][j], dx, dy, threshold_x,
                           threshold_y);
+
+          // Set the appropriate animation flag based on which boid collided
+          if (k == 0) {
+            state->state[i][j].animated_last_frame_by_boid0 = 1;
+          } else if (k == 1) {
+            state->state[i][j].animated_last_frame_by_boid1 = 1;
+          }
           break;
         }
       }
@@ -323,7 +329,7 @@ void handle_cursor_refinement(GameState *state) {
     return;
   }
   Number *num = &state->state[grid_row][grid_col];
-  if (num->is_bad_number && num->animated_last_frame == 1) {
+  if (num->is_bad_number && num->animated_last_frame_by_boid0 == 1) {
     num->number = 0;
     num->refined_last_frame = 1;
 
@@ -331,7 +337,18 @@ void handle_cursor_refinement(GameState *state) {
     // within boid collision radius
     for (int i = 0; i < ROWS; i++) {
       for (int j = 0; j < COLS; j++) {
-        if (state->state[i][j].animated_last_frame == 1) {
+        if (state->state[i][j].animated_last_frame_by_boid0 == 1) {
+          state->state[i][j].refined_last_frame = 1;
+        }
+      }
+    }
+  } else if (num->is_bad_number && num->animated_last_frame_by_boid1 == 1) {
+    num->number = 0;
+    num->refined_last_frame = 1;
+
+    for (int i = 0; i < ROWS; i++) {
+      for (int j = 0; j < COLS; j++) {
+        if (state->state[i][j].animated_last_frame_by_boid1 == 1) {
           state->state[i][j].refined_last_frame = 1;
         }
       }

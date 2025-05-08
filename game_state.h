@@ -112,7 +112,8 @@ typedef struct {
   int y;
   int number;
   int size;
-  int animated_last_frame;
+  int animated_last_frame_by_boid0;
+  int animated_last_frame_by_boid1;
   int refined_last_frame;
   bool is_bad_number;
   BadNumber bad_number;

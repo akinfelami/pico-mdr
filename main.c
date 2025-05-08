@@ -427,7 +427,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
           game_state.state[row][col].bad_number.bin_id = -1;
         }
 
-        if (game_state.state[row][col].animated_last_frame == 1) {
+        if (game_state.state[row][col].animated_last_frame_by_boid0 == 1 ||
+            game_state.state[row][col].animated_last_frame_by_boid1 == 1) {
           // Clear the area with the correct size
           fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
                    CELL_WIDTH, CELL_HEIGHT, BLACK);
@@ -435,7 +436,8 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
         game_state.state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
         game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
         game_state.state[row][col].size = 1;
-        game_state.state[row][col].animated_last_frame = 0;
+        game_state.state[row][col].animated_last_frame_by_boid0 = 0;
+        game_state.state[row][col].animated_last_frame_by_boid1 = 0;
         game_state.state[row][col].refined_last_frame = 0;
       }
     }
