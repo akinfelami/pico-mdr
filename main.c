@@ -419,6 +419,14 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     // Reset number positions, sizes, and animation flags before collision
     for (int row = 0; row < ROWS; row++) {
       for (int col = 0; col < COLS; col++) {
+
+        if (game_state.state[row][col].refined_last_frame == 1) {
+          int random_number = rand();
+          game_state.state[row][col].number = random_number % 10;
+          game_state.state[row][col].is_bad_number = (random_number & 0xF) > 14;
+          game_state.state[row][col].bad_number.bin_id = -1;
+        }
+
         if (game_state.state[row][col].animated_last_frame == 1) {
           // Clear the area with the correct size
           fillRect(game_state.state[row][col].x, game_state.state[row][col].y,
@@ -428,6 +436,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
         game_state.state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
         game_state.state[row][col].size = 1;
         game_state.state[row][col].animated_last_frame = 0;
+        game_state.state[row][col].refined_last_frame = 0;
       }
     }
 

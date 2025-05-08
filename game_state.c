@@ -325,28 +325,16 @@ void handle_cursor_refinement(GameState *state) {
   Number *num = &state->state[grid_row][grid_col];
   if (num->is_bad_number && num->animated_last_frame == 1) {
     num->number = 0;
-    // num->is_bad_number = false;
-    // num->bad_number.bin_id = -1;
-    // num->animated_last_frame = 0;
+    num->refined_last_frame = 1;
 
     // TODO: instead of looping through all numbers, keep track of numbers
     // within boid collision radius
-    // Process all numbers marked for refinement
-    // for (int i = 0; i < state->to_refine_count; i++) {
-    //   int x = state->to_refine[i].x;
-    //   int y = state->to_refine[i].y;
-
-    //   if (is_valid(x, y)) {
-    //     Number *refine_num = &state->state[x][y];
-    //     if (refine_num->is_bad_number && refine_num->animated_last_frame ==
-    //     1) {
-    //       refine_num->number = 0;
-    //       refine_num->is_bad_number = false;
-    //       refine_num->bad_number.bin_id = -1;
-    //       refine_num->animated_last_frame = 0;
-    //     }
-    //   }
-    // }
-    // state->to_refine_count = 0;
+    for (int i = 0; i < ROWS; i++) {
+      for (int j = 0; j < COLS; j++) {
+        if (state->state[i][j].animated_last_frame == 1) {
+          state->state[i][j].refined_last_frame = 1;
+        }
+      }
+    }
   }
 }
