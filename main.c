@@ -424,7 +424,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
           int random_number = rand();
           game_state.state[row][col].number = random_number % 10;
           game_state.state[row][col].is_bad_number = (random_number & 0xF) > 14;
-          game_state.state[row][col].bad_number.bin_id = -1;
+          game_state.state[row][col].bad_number.bin_id = random_number % 4;
         }
 
         if (game_state.state[row][col].animated_last_frame_by_boid0 == 1 ||

@@ -10,19 +10,23 @@ static inline bool is_valid(int r, int c) {
 
 // Helper function for DFS grouping
 void game_state_init(GameState *state, int seed) {
-  srand(seed);
+  // Use a combination of the seed and a fixed value to ensure more randomness
+  srand(seed + 0x5D9EA);  // Add a fixed value to make the seed more unique
 
   for (int row = 0; row < ROWS; row++) {
     for (int col = 0; col < COLS; col++) {
-      int random_number = rand();
-      state->state[row][col].number = random_number % 10;
+      // Use a different random number for each field to ensure more randomness
+      int random_number1 = rand();
+      int random_number2 = rand();
+      state->state[row][col].number = random_number1 % 10;
       state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
       state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
       state->state[row][col].size = 1;
       state->state[row][col].animated_last_frame_by_boid0 = 0;
       state->state[row][col].animated_last_frame_by_boid1 = 0;
-      state->state[row][col].is_bad_number = (random_number & 0xF) > 14;
-      state->state[row][col].bad_number.bin_id = -1;
+      state->state[row][col].is_bad_number = (random_number1 & 0xF) > 14;
+      // Use a different random number for bin_id to ensure more randomness
+      state->state[row][col].bad_number.bin_id = random_number2 % 4;
     }
   }
 
@@ -319,7 +323,6 @@ void check_collisions_and_animate(GameState *state) {
 }
 
 void handle_cursor_refinement(GameState *state) {
-
   // convert cursor x and y to grid row and col
   int grid_row = (state->cursor.y - GRID_START_Y) / CELL_HEIGHT;
   int grid_col = (state->cursor.x - GRID_START_X) / CELL_WIDTH;
@@ -330,8 +333,11 @@ void handle_cursor_refinement(GameState *state) {
   }
   Number *num = &state->state[grid_row][grid_col];
   if (num->is_bad_number && num->animated_last_frame_by_boid0 == 1) {
+    int bin_id = num->bad_number.bin_id;  // Store the bin_id before changing the number
     num->number = 0;
     num->refined_last_frame = 1;
+    // trigger the animation of the bin
+    state->box_anims[bin_id].anim_state = ANIM_GROWING;
 
     // TODO: instead of looping through all numbers, keep track of numbers
     // within boid collision radius
@@ -343,8 +349,11 @@ void handle_cursor_refinement(GameState *state) {
       }
     }
   } else if (num->is_bad_number && num->animated_last_frame_by_boid1 == 1) {
+    int bin_id = num->bad_number.bin_id;  // Store the bin_id before changing the number
     num->number = 0;
     num->refined_last_frame = 1;
+    // trigger the animation of the bin
+    state->box_anims[bin_id].anim_state = ANIM_GROWING;
 
     for (int i = 0; i < ROWS; i++) {
       for (int j = 0; j < COLS; j++) {
