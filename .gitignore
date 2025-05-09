@@ -60,3 +60,4 @@ cmake_install.cmake
 # Pico specific
 *.pio.h
 generated/
+theme.wav

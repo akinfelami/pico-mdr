@@ -32,14 +32,19 @@
 #include <stdio.h>
 #include <stdlib.h> // For abs() function
 // #include <math.h>
+#include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/pio.h"
+#include "hardware/spi.h"
+
 #include "pico/stdlib.h"
+
 // // Our assembled programs:
 // // Each gets the name <pio_filename.pio.h>
 // #include "hsync.pio.h"
 // #include "vsync.pio.h"
 // #include "rgb.pio.h"
+#include "audio_data.h"
 #include "game_state.h"
 
 // ==========================================
@@ -73,6 +78,19 @@ int BOTTOM_MARGIN_GRID = GRID_START_Y + (ROWS * CELL_HEIGHT);
 GameState game_state;
 // semaphore
 static struct pt_sem start_game_sem;
+
+// Audio Stuff
+
+static const uint16_t *address_pointer = dac_audio_stream;
+
+// A-channel, 1x, active
+#define DAC_config_chan_A 0b0011000000000000
+
+#define PIN_MISO 4
+#define PIN_CS 5
+#define PIN_SCK 6
+#define PIN_MOSI 7
+#define SPI_PORT spi0
 
 // ==================================================
 // === lumon logo : Pass the center of the logo and dimension (w, h)
@@ -574,6 +592,63 @@ void core1_main() {
 int main() {
   // set the clock
   stdio_init_all();
+
+  // Set up SPI and DMA
+  spi_init(SPI_PORT, 20000000);
+  spi_set_format(SPI_PORT, 16, 0, 0, 0);
+
+  gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+  gpio_set_function(PIN_CS, GPIO_FUNC_SPI);
+  gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+  gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+
+  // --- DMA Configuration ---
+  // Select DMA channels
+  int data_chan = 0;
+  int ctrl_chan = 1;
+
+  dma_channel_config c = dma_channel_get_default_config(ctrl_chan);
+  channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+  channel_config_set_read_increment(&c, false);
+  channel_config_set_write_increment(&c, false);
+  channel_config_set_chain_to(&c, data_chan);
+
+  dma_channel_configure(
+      ctrl_chan, // Channel to be configured
+      &c,        // The configuration we just created
+      &dma_hw->ch[data_chan]
+           .read_addr,  // Write address (data channel read address)
+      &address_pointer, // Read address (POINTER TO AN ADDRESS)
+      1,                // Number of transfers
+      false             // Don't start immediately
+  );
+
+  // Setup the data channel
+  dma_channel_config c2 =
+      dma_channel_get_default_config(data_chan);           // Default configs
+  channel_config_set_transfer_data_size(&c2, DMA_SIZE_16); // 16-bit txfers
+  channel_config_set_read_increment(&c2, true);   // yes read incrementing
+  channel_config_set_write_increment(&c2, false); // no write incrementing
+
+  // (X/Y)*sys_clk, where X is the first 16 bytes and Y is the second
+  // sys_clk is 125 MHz unless changed in code. Configured to ~44 kHz
+  dma_timer_set_fraction(0, (uint32_t)(AUDIO_SAMPLE_RATE),
+                         (uint32_t)(clock_get_hz(clk_sys) / 1));
+  // 0x3b means timer0 (see SDK manual)
+  channel_config_set_dreq(&c2, 0x3b); // DREQ paced by timer 0
+  // chain to the controller DMA channel
+  channel_config_set_chain_to(&c2, ctrl_chan); // Chain to control channel
+
+  dma_channel_configure(
+      data_chan,                 // Channel to be configured
+      &c2,                       // The configuration we just created
+      &spi_get_hw(SPI_PORT)->dr, // write address (SPI data register)
+      dac_audio_stream,         // The initial read address
+      NUM_AUDIO_SAMPLES,         // Number of transfers
+      false                      // Don't start immediately.
+  );
+
+  dma_start_channel_mask((1u << ctrl_chan));
 
   // SET UP BUTTON
   gpio_init(BUTTON_PIN);

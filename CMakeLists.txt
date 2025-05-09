@@ -60,6 +60,8 @@ target_link_libraries(4760FinalProject
 	hardware_sync
 	hardware_irq
 	pico_multicore
+	hardware_spi
+	hardware_clocks
 )
 
 # must match with executable name
