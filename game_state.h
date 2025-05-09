@@ -85,17 +85,20 @@ typedef struct {
     int number;
     int size;
     int animated_last_frame;
-    int highlighted; //0: Cursor not on, 1: Cursor Currently On
 } Number;
+
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} Cursor;
 
 typedef struct {
     Number state[ROWS][COLS];
     Box boxes[5];
     Boid boids[NUM_BOIDS];
-    // 4/27
-    int selected_row;
-    int selected_col;
-    //end 
+    Cursor cursor;
 } GameState;
 
 // Function declarations
