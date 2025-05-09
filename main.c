@@ -35,6 +35,7 @@
 #include <math.h>
 #include "hardware/dma.h"
 #include "hardware/pio.h"
+#include "hardware/spi.h"
 #include "pico/stdlib.h"
 #include "pico/stdio_usb.h"
 // // Our assembled programs:
@@ -43,6 +44,7 @@
 #include "vsync.pio.h"
 #include "rgb.pio.h"
 #include "game_state.h"
+#include "audio_samples.h"
 
 
 // ==========================================
@@ -52,11 +54,37 @@
 #include "hardware/adc.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
+
 #include "string.h"
 // protothreads header
 #include "pt_cornell_rp2040_v1_3.h"
 
 #define FRAME_RATE 60000
+
+// SPI data
+uint16_t DAC_data_1 ; // output value
+uint16_t DAC_data_0 ; // output value
+
+// DAC parameters (see the DAC datasheet)
+// A-channel, 1x, active
+#define DAC_config_chan_A 0b0011000000000000
+// B-channel, 1x, active
+#define DAC_config_chan_B 0b1011000000000000
+
+//SPI configurations (note these represent GPIO number, NOT pin number)
+#define spi0            ((spi_inst_t *)spi0_hw)
+#define PIN_MISO        4
+#define PIN_CS          5
+#define PIN_SCK         6
+#define PIN_MOSI        7
+#define LDAC            8
+#define SPI_PORT        spi0
+#define ISR_GPIO        2
+#define ALARM_NUM 0
+#define ALARM_IRQ TIMER_IRQ_0
+#define DELAY 20 // 1/Fs (in microseconds)
+#define SAMPLE_COUNT (sizeof(audio_samples)/sizeof(audio_samples[0]))
+
 
 
 // Accumulator variables for boids
@@ -74,9 +102,34 @@ int Y_DOWN_THRESHOLD = 3000;
 int Y_UP_THRESHOLD = 500;
 
 volatile int march_offset = 0;
+volatile uint32_t audio_index = 0;
+
+unsigned short DAC_data[SAMPLE_COUNT];
 
 
 GameState game_state;
+
+// static void alarm_irq(void){
+//     //Assert a GPIO whenever we enter an interrupt 
+//     gpio_put(ISR_GPIO, 1) ;
+//     // Clear the alarm Irq 
+//     hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+//     // Reset the alarm register
+//     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + DELAY ;
+
+//     if(audio_index>SAMPLE_COUNT){
+//         audio_index=0;
+//     }
+//     DAC_data_0 = audio_samples[audio_index];
+
+//     spi_write16_blocking(SPI_PORT, &DAC_data_0, 1);
+
+//     audio_index += 1;
+
+//     gpio_put(ISR_GPIO, 0);
+
+
+// }
 
 // ==================================================
 // === lumon logo : Pass the center of the logo and dimension (w, h)
@@ -555,13 +608,96 @@ int main() {
     // Initialize the VGA screen
     initVGA();
 
+    // Initialize SPI channel (channel, baud rate set to 20MHz)
+    spi_init(SPI_PORT, 20000000);
+    // Format (channel, data bits per transfer, polarity, phase, order)
+    spi_set_format(SPI_PORT, 16, 0, 0, 0);
+
+    // Map SPI signals to GPIO ports
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_CS, GPIO_FUNC_SPI) ;
+
+
+    // for(int i = 0; i<= SAMPLE_COUNT; i++){
+    //     DAC_data[i] = audio_samples
+    // }
+
+    // // Map LDAC pin to GPIO port, hold it low (could alternatively tie to GND)
+    // gpio_init(LDAC) ;
+    // gpio_set_dir(LDAC, GPIO_OUT) ;
+    // gpio_put(LDAC, 0) ;
+
+    // // Setup the ISR-timing GPIO
+    // gpio_init(ISR_GPIO) ;
+    // gpio_set_dir(ISR_GPIO, GPIO_OUT);
+    // gpio_put(ISR_GPIO, 0) ;
+
+    //  // Enable the interrupt for the alarm (we're using Alarm 0)
+    // hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM) ;
+    // //Associate an interrupt handler with the ALARM_IRQ
+    // irq_set_exclusive_handler(ALARM_IRQ, alarm_irq) ;
+    // // Enable the alarm interrupt
+    // irq_set_enabled(ALARM_IRQ, true) ;
+    // // Write the lower 32 bits of the target time to the alarm register, arming it.
+    // timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + DELAY;
+
+
+    // Select DMA channels
+    int data_chan = 0;
+    int ctrl_chan = 1;
+
+    // Setup the control channel
+    dma_channel_config c = dma_channel_get_default_config(ctrl_chan);   // default configs
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_32);             // 32-bit txfers
+    channel_config_set_read_increment(&c, false);                       // no read incrementing
+    channel_config_set_write_increment(&c, false);                      // no write incrementing
+    channel_config_set_chain_to(&c, data_chan);                         // chain to data channel
+
+    dma_channel_configure(
+        ctrl_chan,                          // Channel to be configured
+        &c,                                 // The configuration we just created
+        &dma_hw->ch[data_chan].read_addr,   // Write address (data channel read address)
+        &audio_samples,                   // Read address (POINTER TO AN ADDRESS)
+        1,                                  // Number of transfers
+        false                               // Don't start immediately
+    );
+
+    // Setup the data channel
+    dma_channel_config c2 = dma_channel_get_default_config(data_chan);  // Default configs
+    channel_config_set_transfer_data_size(&c2, DMA_SIZE_16);            // 16-bit txfers
+    channel_config_set_read_increment(&c2, true);                       // yes read incrementing
+    channel_config_set_write_increment(&c2, false);                     // no write incrementing
+    // (X/Y)*sys_clk, where X is the first 16 bytes and Y is the second
+    // sys_clk is 125 MHz unless changed in code. Configured to ~44 kHz
+    dma_timer_set_fraction(0, 0x0017, 0xffff) ;
+    // 0x3b means timer0 (see SDK manual)
+    channel_config_set_dreq(&c2, 0x3b);                                 // DREQ paced by timer 0
+    // chain to the controller DMA channel
+    channel_config_set_chain_to(&c2, ctrl_chan);                        // Chain to control channel
+
+
+    dma_channel_configure(
+        data_chan,                  // Channel to be configured
+        &c2,                        // The configuration we just created
+        &spi_get_hw(SPI_PORT)->dr,  // write address (SPI data register)
+        audio_samples,                   // The initial read address
+        SAMPLE_COUNT,            // Number of transfers
+        false                       // Don't start immediately.
+    );
+
+
+    // start the control channel
+    dma_start_channel_mask(1u << ctrl_chan) ;
+
     // start core 1 threads
     multicore_reset_core1();
     multicore_launch_core1(&core1_main);
 
     // === config threads ========================
     // for core 0
-    //pt_add_thread(protothread_graphics);
+    pt_add_thread(protothread_graphics);
     pt_add_thread(protothread_toggle25);
     pt_add_thread(protothread_joystick);
     //

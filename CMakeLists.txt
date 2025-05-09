@@ -61,6 +61,7 @@ target_link_libraries(4760FinalProject
 	hardware_sync
 	hardware_irq
 	pico_multicore
+	hardware_spi
 )
 # must match with executable name
 pico_add_extra_outputs(4760FinalProject)
