@@ -80,8 +80,8 @@ static struct pt_sem start_game_sem;
 // === lumon logo : Pass the center of the logo and dimension (w, h)
 // ==================================================
 void draw_lumon_logo(int cx, int cy, int logo_w, int logo_h) {
-  char fill_color = BLUE; // Dark blue for the globe fill
-  char line_color = CYAN; // Bright cyan for outlines and text
+  char fill_color = DARK_BLUE; // Dark blue for the globe fill
+  char line_color = WHITE; // Bright white for outlines and text
 
   // Calculate radii for the ovals
   short outer_rx = logo_w / 2;
@@ -99,7 +99,7 @@ void draw_lumon_logo(int cx, int cy, int logo_w, int logo_h) {
   char text_str[] = "LUMON";
   setCursor(cx - (middle_rx + 2), cy - 5);
   setTextSize(2);
-  setTextColor(CYAN);
+  setTextColor(WHITE);
   writeString(text_str);
 }
 
@@ -318,7 +318,7 @@ static PT_THREAD(protothread_joystick(struct pt *pt)) {
       if (game_state.cursor.y < TOP_MARGIN_GRID)
         game_state.cursor.y = TOP_MARGIN_GRID;
     }
-    draw_cursor(&game_state, BLUE);
+    draw_cursor(&game_state, CYAN);
 
     // Schedule to be called again in 70ms.
     PT_YIELD_usec(70000);
@@ -378,7 +378,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
   // Write the instructions on the screen
   setCursor(200, 240);
   setTextSize(2);
-  setTextColor(WHITE);
+  setTextColor(YELLOW);
   writeString("Press button to start!");
   PT_SEM_WAIT(pt, &start_game_sem);
 
@@ -437,7 +437,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
   // game_state.box_anims[random_index].anim_state = ANIM_GROWING;
 
   setCursor(progress_bar_x + 10, progress_bar_y + 10);
-  setTextColor(CYAN);
+  setTextColor(RED);
   setTextSize(2);
   writeString("Ocula");
 
@@ -461,7 +461,7 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
     // Draw percentage
     char percent_str[5];
     sprintf(percent_str, "%d%%", game_state.progress_bar.current_progress);
-    setTextColor(GREEN);
+    setTextColor(DARK_BLUE);
     setCursor(progress_bar_x + progress_bar_fill_width + 5,
               progress_bar_y + 10);
     setTextSize(2);
