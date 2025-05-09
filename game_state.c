@@ -11,7 +11,11 @@ static inline bool is_valid(int r, int c) {
 // Helper function for DFS grouping
 void game_state_init(GameState *state, int seed) {
   // Use a combination of the seed and a fixed value to ensure more randomness
-  srand(seed + 0x5D9EA);  // Add a fixed value to make the seed more unique
+  srand(seed + 0x5D9EA); // Add a fixed value to make the seed more unique
+
+  state->total_bad_numbers = 0;
+  state->progress_bar.current_progress = 25;
+  state->progress_bar.progress_anim_step = 0;
 
   for (int row = 0; row < ROWS; row++) {
     for (int col = 0; col < COLS; col++) {
@@ -25,7 +29,9 @@ void game_state_init(GameState *state, int seed) {
       state->state[row][col].animated_last_frame_by_boid0 = 0;
       state->state[row][col].animated_last_frame_by_boid1 = 0;
       state->state[row][col].is_bad_number = (random_number1 & 0xF) > 14;
-      // Use a different random number for bin_id to ensure more randomness
+      if (state->state[row][col].is_bad_number) {
+        state->total_bad_numbers++;
+      }
       state->state[row][col].bad_number.bin_id = random_number2 % 4;
     }
   }
@@ -50,16 +56,6 @@ void game_state_init(GameState *state, int seed) {
 
   // Initialize play state
   state->play_state = START_SCREEN;
-}
-
-void game_state_update(GameState *state) {
-  for (int row = 0; row < ROWS; row++) {
-    for (int col = 0; col < COLS; col++) {
-      state->state[row][col].number = rand() % 10;
-      state->state[row][col].x = GRID_START_X + (col * CELL_WIDTH);
-      state->state[row][col].y = GRID_START_Y + (row * CELL_HEIGHT);
-    }
-  }
 }
 
 void game_state_update_boxes(Box *state, int x, int y, int w, int h,
@@ -333,14 +329,15 @@ void handle_cursor_refinement(GameState *state) {
   }
   Number *num = &state->state[grid_row][grid_col];
   if (num->is_bad_number && num->animated_last_frame_by_boid0 == 1) {
-    int bin_id = num->bad_number.bin_id;  // Store the bin_id before changing the number
+    int bin_id =
+        num->bad_number.bin_id; // Store the bin_id before changing the number
     num->number = 0;
     num->refined_last_frame = 1;
+    state->total_bad_numbers--; // Decrement total bad numbers for boid0 case
     // trigger the animation of the bin
     state->box_anims[bin_id].anim_state = ANIM_GROWING;
+    state->progress_bar.anim_state = ANIMATION_GROWING;
 
-    // TODO: instead of looping through all numbers, keep track of numbers
-    // within boid collision radius
     for (int i = 0; i < ROWS; i++) {
       for (int j = 0; j < COLS; j++) {
         if (state->state[i][j].animated_last_frame_by_boid0 == 1) {
@@ -349,12 +346,19 @@ void handle_cursor_refinement(GameState *state) {
       }
     }
   } else if (num->is_bad_number && num->animated_last_frame_by_boid1 == 1) {
-    int bin_id = num->bad_number.bin_id;  // Store the bin_id before changing the number
+    int bin_id = num->bad_number.bin_id;
+    int value = num->number;
     num->number = 0;
     num->refined_last_frame = 1;
+    state->total_bad_numbers--;
     // trigger the animation of the bin
-    state->box_anims[bin_id].anim_state = ANIM_GROWING;
+    state->box_anims[bin_id].woe_percentage += value;
+    state->box_anims[bin_id].frolic_percentage += value;
+    state->box_anims[bin_id].dread_percentage += value;
+    state->box_anims[bin_id].malice_percentage += value;
 
+    state->box_anims[bin_id].anim_state = ANIM_GROWING;
+    state->progress_bar.anim_state = ANIMATION_GROWING;
     for (int i = 0; i < ROWS; i++) {
       for (int j = 0; j < COLS; j++) {
         if (state->state[i][j].animated_last_frame_by_boid1 == 1) {

@@ -28,13 +28,15 @@
 // === VGA graphics library
 // ==========================================
 #include "game_state.h"
-#include "vga16_graphics.h"
-#include <stdio.h>
-#include <stdlib.h> // For abs() function
-// #include <math.h>
 #include "hardware/dma.h"
 #include "hardware/pio.h"
 #include "pico/stdlib.h"
+#include "vga16_graphics.h"
+#include <assert.h> // For assert
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h> // For abs() function
+#include <string.h> // For strlen
 // // Our assembled programs:
 // // Each gets the name <pio_filename.pio.h>
 // #include "hsync.pio.h"
@@ -326,10 +328,51 @@ static PT_THREAD(protothread_joystick(struct pt *pt)) {
 }
 
 // ==================================================
+// === progress bar animation thread
+// ==================================================
+static PT_THREAD(protothread_progress_bar(struct pt *pt)) {
+  PT_BEGIN(pt);
+  static int begin_time;
+  static int spare_time;
+  static int new_progress;
+  static int bad_numbers;
+
+  while (1) {
+    begin_time = time_us_32();
+    ProgressBarAnimation *progress_bar = &game_state.progress_bar;
+
+    switch (progress_bar->anim_state) {
+    case ANIMATION_IDLE:
+      break;
+    case ANIMATION_GROWING:
+      bad_numbers =
+          game_state.total_bad_numbers == 0 ? 1 : game_state.total_bad_numbers;
+      new_progress = (100 - progress_bar->current_progress) / bad_numbers;
+      progress_bar->current_progress += new_progress;
+      if (progress_bar->current_progress >= 100) {
+        progress_bar->current_progress = 100;
+        game_state.play_state = GAME_WON;
+      }
+      progress_bar->anim_state = ANIMATION_IDLE;
+      break;
+    }
+
+    spare_time = FRAME_RATE - (time_us_32() - begin_time);
+    if (spare_time < 0)
+      spare_time = 0;
+    PT_YIELD_usec(spare_time);
+  }
+  PT_END(pt);
+}
+
+// ==================================================
 // === graphics demo -- RUNNING on core 0
 // ==================================================
 static PT_THREAD(protothread_graphics(struct pt *pt)) {
   PT_BEGIN(pt);
+  static int begin_time;
+  static int spare_time;
+  static char progress_str[15]; // Declare the progress string buffer
 
   // ---- To Start the game; user has to press some button ---- //
   // Write the instructions on the screen
@@ -341,9 +384,6 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
 
   game_state_init(&game_state, time_us_32());
 
-  static int begin_time;
-  static int spare_time;
-
   // Variables for grid drawing
   static const int cell_width = 40;   // Width of each grid cell
   static const int cell_height = 40;  // Height of each grid cell
@@ -351,32 +391,15 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
   static int grid_start_y = 60;       // Starting Y position of the grid
   static char num_str[2] = {
       0, 0}; // String to hold the number (plus null terminator)
-  static char percent_str[15]; // For percentage display
 
   // Clear the screen first
   fillRect(0, 0, 640, 480, BLACK);
 
   // Progress bar
-
   int progress_bar_width = (COLS * cell_width);
-  int progress_bar_fill_width = progress_bar_width / 2; // For 50%
   int progress_bar_y = 20;
   int progress_bar_height = 30;
-  int progress_bar_x = grid_start_x + 10; // x = 20
-
-  drawRect(progress_bar_x, progress_bar_y, progress_bar_width,
-           progress_bar_height, CYAN);
-  fillRect(progress_bar_x, progress_bar_y, progress_bar_fill_width,
-           progress_bar_height, WHITE); // WHITE fill (50%)
-  setCursor(progress_bar_x + 10, progress_bar_y + 10);
-  setTextColor(LIGHT_BLUE);
-  setTextSize(2);
-  writeString("Ocula");
-
-  setCursor(progress_bar_x + progress_bar_fill_width + 10, progress_bar_y + 10);
-  setTextColor(WHITE);
-  setTextSize(1);
-  writeString("50% Complete");
+  int progress_bar_x = grid_start_x + 10;
 
   // Lumon Logo - to the right of the progress bar
   int logo_w = 70;
@@ -413,8 +436,36 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
   // int random_index = rand() % 4;
   // game_state.box_anims[random_index].anim_state = ANIM_GROWING;
 
+  setCursor(progress_bar_x + 10, progress_bar_y + 10);
+  setTextColor(CYAN);
+  setTextSize(2);
+  writeString("Ocula");
+
   while (true) {
     begin_time = time_us_32();
+    int progress_bar_fill_width =
+        (progress_bar_width * game_state.progress_bar.current_progress) / 100;
+
+    // Progress bar
+    drawRect(progress_bar_x, progress_bar_y, progress_bar_width,
+             progress_bar_height, CYAN);
+    fillRect(progress_bar_x, progress_bar_y, progress_bar_fill_width,
+             progress_bar_height, WHITE); // WHITE fill based on progress
+
+    // Draw Ocula text on top of the progress bar
+    setCursor(progress_bar_x + 10, progress_bar_y + 10);
+    setTextColor(RED);
+    setTextSize(2);
+    writeString("Ocula");
+
+    // Draw percentage
+    char percent_str[5];
+    sprintf(percent_str, "%d%%", game_state.progress_bar.current_progress);
+    setTextColor(GREEN);
+    setCursor(progress_bar_x + progress_bar_fill_width + 5,
+              progress_bar_y + 10);
+    setTextSize(2);
+    writeString(percent_str);
 
     // Reset number positions, sizes, and animation flags before collision
     for (int row = 0; row < ROWS; row++) {
@@ -425,6 +476,9 @@ static PT_THREAD(protothread_graphics(struct pt *pt)) {
           game_state.state[row][col].number = random_number % 10;
           game_state.state[row][col].is_bad_number = (random_number & 0xF) > 14;
           game_state.state[row][col].bad_number.bin_id = random_number % 4;
+          if (game_state.state[row][col].is_bad_number) {
+            game_state.total_bad_numbers++;
+          }
         }
 
         if (game_state.state[row][col].animated_last_frame_by_boid0 == 1 ||
@@ -565,6 +619,7 @@ void core1_main() {
   //
   //  === add threads  ====================
   pt_add_thread(protothread_graphics_too);
+  pt_add_thread(protothread_progress_bar); // Add the new progress bar thread
   pt_schedule_start;
 }
 

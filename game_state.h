@@ -95,6 +95,15 @@ typedef struct {
 } BoxAnim;
 
 typedef struct {
+  int current_progress;
+  int progress_anim_step;
+  enum {
+    ANIMATION_IDLE,
+    ANIMATION_GROWING,
+  } anim_state;
+} ProgressBarAnimation;
+
+typedef struct {
   fix15 x;
   fix15 y;
   fix15 vx;
@@ -135,6 +144,8 @@ typedef struct {
   BoxAnim box_anims[5];
   Cursor cursor;
   PlayState play_state;
+  int total_bad_numbers;
+  ProgressBarAnimation progress_bar;
 } GameState;
 
 // Function declarations
